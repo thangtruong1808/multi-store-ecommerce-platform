@@ -1,0 +1,16 @@
+{
+  "name": "multi-store-ecommerce-platform",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c green,blue \"npm run dev --prefix frontend\" \"dotnet watch run --project backend/backend.csproj\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "dotnet watch run --project backend/backend.csproj"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
