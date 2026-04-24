@@ -8,3 +8,4 @@ backend/obj/
 frontend/.env
 backend/.env
 database/
+BRANCH_PRODUCTION_GUIDE.local.md
