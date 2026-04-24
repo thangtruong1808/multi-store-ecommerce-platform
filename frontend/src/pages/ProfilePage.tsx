@@ -1,11 +1,11 @@
-import { useDispatch, useSelector } from 'react-redux'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { logoutUser } from '../features/auth/authSlice'
 
 function ProfilePage() {
-  const dispatch = useDispatch()
+  const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { isAuthenticated, user, actionLoading, error } = useSelector((state) => state.auth)
+  const { isAuthenticated, user, actionLoading, error } = useAppSelector((state) => state.auth)
 
   if (!isAuthenticated) {
     return <Navigate to="/signin" replace />

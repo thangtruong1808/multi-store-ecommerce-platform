@@ -1,56 +1,62 @@
-import { useMemo, useState } from "react";
-import { z } from "zod";
-import { useDispatch, useSelector } from "react-redux";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { clearAuthErrors, signIn } from "../features/auth/authSlice";
+import { useMemo, useState } from 'react'
+import { z } from 'zod'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useAppDispatch, useAppSelector } from '../app/hooks'
+import { clearAuthErrors, signIn } from '../features/auth/authSlice'
 
 const signInSchema = z.object({
-  email: z.string().trim().email("Please enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+  email: z.string().trim().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+})
+
+type SignInForm = {
+  email: string
+  password: string
+}
 
 function SignInPage() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { isAuthenticated, actionLoading, error, fieldErrors } = useSelector(
-    (state) => state.auth,
-  );
-  const [formData, setFormData] = useState({ email: "", password: "" });
-  const [clientErrors, setClientErrors] = useState({});
+  const dispatch = useAppDispatch()
+  const navigate = useNavigate()
+  const { isAuthenticated, actionLoading, error, fieldErrors } = useAppSelector((state) => state.auth)
+  const [formData, setFormData] = useState<SignInForm>({ email: '', password: '' })
+  const [clientErrors, setClientErrors] = useState<Record<string, string | undefined>>({})
 
   const mergedErrors = useMemo(
     () => ({ ...fieldErrors, ...clientErrors }),
     [fieldErrors, clientErrors],
-  );
+  )
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/" replace />
   }
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setClientErrors((prev) => ({ ...prev, [name]: undefined }));
-    dispatch(clearAuthErrors());
-  };
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+    setClientErrors((prev) => ({ ...prev, [name]: undefined }))
+    dispatch(clearAuthErrors())
+  }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const parsed = signInSchema.safeParse(formData);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const parsed = signInSchema.safeParse(formData)
     if (!parsed.success) {
-      const nextErrors = {};
+      const nextErrors: Record<string, string> = {}
       for (const issue of parsed.error.issues) {
-        nextErrors[issue.path[0]] = issue.message;
+        const pathKey = String(issue.path[0] ?? '')
+        if (pathKey) {
+          nextErrors[pathKey] = issue.message
+        }
       }
-      setClientErrors(nextErrors);
-      return;
+      setClientErrors(nextErrors)
+      return
     }
 
-    const result = await dispatch(signIn(parsed.data));
+    const result = await dispatch(signIn(parsed.data))
     if (signIn.fulfilled.match(result)) {
-      navigate("/");
+      navigate('/')
     }
-  };
+  }
 
   return (
     <div className="mx-auto mt-8 max-w-md rounded-xl bg-white p-8 shadow">
@@ -115,18 +121,18 @@ function SignInPage() {
           disabled={actionLoading}
           className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {actionLoading ? "Signing in..." : "Sign In"}
+          {actionLoading ? 'Signing in...' : 'Sign In'}
         </button>
       </form>
 
       <p className="mt-4 text-sm text-slate-600">
-        New account?{" "}
+        New account?{' '}
         <Link to="/register" className="font-medium text-slate-900 underline">
           Register here
         </Link>
       </p>
     </div>
-  );
+  )
 }
 
-export default SignInPage;
+export default SignInPage

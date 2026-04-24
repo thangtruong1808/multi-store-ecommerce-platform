@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
-import { useDispatch, useSelector } from 'react-redux'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { clearAuthErrors, registerUser } from '../features/auth/authSlice'
 
 const registerSchema = z
@@ -15,12 +15,18 @@ const registerSchema = z
     path: ['confirmPassword'],
   })
 
+type RegisterForm = {
+  email: string
+  password: string
+  confirmPassword: string
+}
+
 function RegisterPage() {
-  const dispatch = useDispatch()
+  const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { isAuthenticated, actionLoading, error, fieldErrors } = useSelector((state) => state.auth)
-  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' })
-  const [clientErrors, setClientErrors] = useState({})
+  const { isAuthenticated, actionLoading, error, fieldErrors } = useAppSelector((state) => state.auth)
+  const [formData, setFormData] = useState<RegisterForm>({ email: '', password: '', confirmPassword: '' })
+  const [clientErrors, setClientErrors] = useState<Record<string, string | undefined>>({})
 
   const mergedErrors = useMemo(() => ({ ...fieldErrors, ...clientErrors }), [fieldErrors, clientErrors])
 
@@ -28,20 +34,23 @@ function RegisterPage() {
     return <Navigate to="/" replace />
   }
 
-  const handleChange = (event) => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     setClientErrors((prev) => ({ ...prev, [name]: undefined }))
     dispatch(clearAuthErrors())
   }
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const parsed = registerSchema.safeParse(formData)
     if (!parsed.success) {
-      const nextErrors = {}
+      const nextErrors: Record<string, string> = {}
       for (const issue of parsed.error.issues) {
-        nextErrors[issue.path[0]] = issue.message
+        const pathKey = String(issue.path[0] ?? '')
+        if (pathKey) {
+          nextErrors[pathKey] = issue.message
+        }
       }
       setClientErrors(nextErrors)
       return

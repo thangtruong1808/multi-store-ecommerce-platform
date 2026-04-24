@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom'
 
-function Navbar({ isAuthenticated, userEmail }) {
+type NavbarProps = {
+  isAuthenticated: boolean
+  userEmail?: string
+}
+
+function Navbar({ isAuthenticated, userEmail }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
