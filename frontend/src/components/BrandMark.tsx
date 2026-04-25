@@ -2,7 +2,7 @@ function BrandMark() {
   return (
     <div className="flex items-center gap-2 sm:gap-3">
       <div
-        className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white sm:h-11 sm:w-11"
+        className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-600 text-white sm:h-11 sm:w-11"
         aria-hidden="true"
       >
         <svg

@@ -6,6 +6,7 @@ import Navbar from './components/Navbar'
 import SignInPage from './pages/SignInPage'
 import RegisterPage from './pages/RegisterPage'
 import ProfilePage from './pages/ProfilePage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 function HomePage() {
   // Redux auth state
@@ -56,11 +57,17 @@ function App() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-800">
-      <Navbar isAuthenticated={isAuthenticated} userEmail={user?.email} />
+      <Navbar
+        isAuthenticated={isAuthenticated}
+        userEmail={user?.email}
+        firstName={user?.firstName}
+        lastName={user?.lastName}
+      />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

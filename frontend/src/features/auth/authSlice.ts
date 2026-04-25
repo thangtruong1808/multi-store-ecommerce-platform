@@ -5,12 +5,21 @@ const AUTH_SESSION_HINT_KEY = 'auth_session_hint'
 
 export type AuthUser = {
   id?: string
-  email?: string
+  role?: string
   firstName?: string
   lastName?: string
+  avatarS3Key?: string
+  email?: string
   mobile?: string
+  addressLine1?: string
+  addressLine2?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
   isActive?: boolean
   createdAt?: string
+  updatedAt?: string
 }
 
 export type ApiErrorPayload = {
@@ -30,6 +39,22 @@ type RegisterRequestBody = {
   email: string
   password: string
   mobile?: string
+}
+
+type UpdateProfileRequestBody = {
+  firstName: string
+  lastName: string
+  email: string
+  mobile?: string
+  addressLine1?: string
+  addressLine2?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
+  avatarS3Key?: string
+  currentPassword?: string
+  newPassword?: string
 }
 
 type AuthState = {
@@ -204,6 +229,33 @@ export const logoutUser = createAsyncThunk<boolean, void, { rejectValue: ApiErro
   },
 )
 
+export const updateProfile = createAsyncThunk<AuthUser, UpdateProfileRequestBody, { rejectValue: ApiErrorPayload }>(
+  'auth/updateProfile',
+  async (body, thunkAPI) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        return thunkAPI.rejectWithValue(await parseErrorPayload(response, 'Unable to update profile'))
+      }
+
+      return (await response.json()) as AuthUser
+    } catch (error) {
+      return thunkAPI.rejectWithValue({
+        message: getErrorMessage(error, 'Unable to update profile'),
+        errors: {},
+      })
+    }
+  },
+)
+
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
@@ -302,6 +354,22 @@ const authSlice = createSlice({
       .addCase(logoutUser.rejected, (state, action) => {
         state.actionLoading = false
         state.error = action.payload?.message ?? 'Logout failed'
+      })
+      .addCase(updateProfile.pending, (state) => {
+        state.actionLoading = true
+        state.error = null
+        state.fieldErrors = {}
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.actionLoading = false
+        state.user = action.payload
+        state.isAuthenticated = true
+        state.error = null
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.actionLoading = false
+        state.error = action.payload?.message ?? 'Profile update failed'
+        state.fieldErrors = action.payload?.errors ?? {}
       })
   },
 })
