@@ -29,9 +29,30 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
+        var firstName = request.FirstName?.Trim() ?? string.Empty;
+        var lastName = request.LastName?.Trim() ?? string.Empty;
         var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
         var password = request.Password?.Trim() ?? string.Empty;
+        var mobile = request.Mobile?.Trim();
         var registerErrors = new Dictionary<string, string>();
+        if (string.IsNullOrWhiteSpace(firstName))
+        {
+            registerErrors["firstName"] = "First name is required.";
+        }
+        else if (firstName.Length < 2)
+        {
+            registerErrors["firstName"] = "First name must be at least 2 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(lastName))
+        {
+            registerErrors["lastName"] = "Last name is required.";
+        }
+        else if (lastName.Length < 2)
+        {
+            registerErrors["lastName"] = "Last name must be at least 2 characters.";
+        }
+
         if (string.IsNullOrWhiteSpace(email))
         {
             registerErrors["email"] = "Email is required.";
@@ -50,6 +71,11 @@ public class AuthController : ControllerBase
             registerErrors["password"] = "Password must be at least 8 characters.";
         }
 
+        if (!string.IsNullOrWhiteSpace(mobile) && mobile.Length < 8)
+        {
+            registerErrors["mobile"] = "Mobile must be at least 8 characters.";
+        }
+
         if (registerErrors.Count > 0)
         {
             return BadRequest(new { message = "Validation failed.", errors = registerErrors });
@@ -59,14 +85,15 @@ public class AuthController : ControllerBase
         await using var conn = await _dataSource.OpenConnectionAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-                          INSERT INTO app.users (role, first_name, last_name, email, password_hash, is_active)
-                          VALUES (CAST('customer' AS app.user_role), @first_name, @last_name, @email, @password_hash, TRUE)
-                          RETURNING id, email, is_active, created_at;
+                          INSERT INTO app.users (role, first_name, last_name, email, password_hash, mobile, is_active)
+                          VALUES (CAST('customer' AS app.user_role), @first_name, @last_name, @email, @password_hash, @mobile, TRUE)
+                          RETURNING id, first_name, last_name, email, mobile, is_active, created_at;
                           """;
-        cmd.Parameters.AddWithValue("first_name", "Customer");
-        cmd.Parameters.AddWithValue("last_name", "User");
+        cmd.Parameters.AddWithValue("first_name", firstName);
+        cmd.Parameters.AddWithValue("last_name", lastName);
         cmd.Parameters.AddWithValue("email", email);
         cmd.Parameters.AddWithValue("password_hash", passwordHash);
+        cmd.Parameters.AddWithValue("mobile", (object?)mobile ?? DBNull.Value);
 
         try
         {
@@ -75,9 +102,12 @@ public class AuthController : ControllerBase
             return Ok(new
             {
                 id = reader.GetGuid(0),
-                email = reader.GetString(1),
-                isActive = reader.GetBoolean(2),
-                createdAt = reader.GetDateTime(3)
+                firstName = reader.GetString(1),
+                lastName = reader.GetString(2),
+                email = reader.GetString(3),
+                mobile = reader.IsDBNull(4) ? null : reader.GetString(4),
+                isActive = reader.GetBoolean(5),
+                createdAt = reader.GetDateTime(6)
             });
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
@@ -339,6 +369,6 @@ public class AuthController : ControllerBase
         });
     }
 
-    public sealed record RegisterRequest(string Email, string Password);
+    public sealed record RegisterRequest(string FirstName, string LastName, string Email, string Password, string? Mobile);
     public sealed record LoginRequest(string Email, string Password);
 }

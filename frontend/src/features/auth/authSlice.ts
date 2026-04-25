@@ -6,7 +6,10 @@ const AUTH_SESSION_HINT_KEY = 'auth_session_hint'
 export type AuthUser = {
   id?: string
   email?: string
-  status?: string
+  firstName?: string
+  lastName?: string
+  mobile?: string
+  isActive?: boolean
   createdAt?: string
 }
 
@@ -19,6 +22,14 @@ export type ApiErrorPayload = {
 type AuthRequestBody = {
   email: string
   password: string
+}
+
+type RegisterRequestBody = {
+  firstName: string
+  lastName: string
+  email: string
+  password: string
+  mobile?: string
 }
 
 type AuthState = {
@@ -125,7 +136,7 @@ export const signIn = createAsyncThunk<AuthUser, AuthRequestBody, { rejectValue:
   },
 )
 
-export const registerUser = createAsyncThunk<AuthUser, AuthRequestBody, { rejectValue: ApiErrorPayload }>(
+export const registerUser = createAsyncThunk<AuthUser, RegisterRequestBody, { rejectValue: ApiErrorPayload }>(
   'auth/registerUser',
   async (body, thunkAPI) => {
     try {
