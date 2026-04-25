@@ -7,5 +7,5 @@ backend/obj/
 .env
 frontend/.env
 backend/.env
-database/
+/database/
 BRANCH_PRODUCTION_GUIDE.local.md

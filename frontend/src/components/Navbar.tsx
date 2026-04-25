@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import BrandMark from './BrandMark'
 
 type NavbarProps = {
   isAuthenticated: boolean
@@ -8,10 +9,11 @@ type NavbarProps = {
 function Navbar({ isAuthenticated, userEmail }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:h-24 sm:px-6">
         <div className="flex items-center gap-8">
-          <Link to="/" className="text-lg font-bold text-slate-900">
-            Multi-Store-Ecommerce-Platform
+          <Link to="/" className="flex items-center" aria-label="Multi-Store-Ecommerce-Platform Home">
+            <BrandMark />
+            <span className="sr-only">Multi-Store-Ecommerce-Platform</span>
           </Link>
           <nav className="hidden items-center gap-5 text-sm text-slate-600 md:flex">
             <a href="#" className="hover:text-slate-900">
