@@ -25,6 +25,11 @@ if (string.IsNullOrWhiteSpace(defaultConnection)) // If the default connection s
 {
     throw new InvalidOperationException("ConnectionStrings__Default must be configured."); // Throw an exception if the default connection string is not configured
 }
+var connectionBuilder = new NpgsqlConnectionStringBuilder(defaultConnection);
+if (string.IsNullOrWhiteSpace(connectionBuilder.Password))
+{
+    throw new InvalidOperationException("PostgreSQL password is missing. Please set ConnectionStrings__Default password in backend/.env.");
+}
 builder.Services.AddSingleton(new NpgsqlDataSourceBuilder(defaultConnection).Build()); // Add the PostgreSQL data source builder to the services
 
 // --- Authentication and authorization (step 2: add after the API + DB are in place) ---

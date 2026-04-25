@@ -59,10 +59,12 @@ public class AuthController : ControllerBase
         await using var conn = await _dataSource.OpenConnectionAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-                          INSERT INTO users (email, password_hash, status)
-                          VALUES (@email, @password_hash, CAST('active' AS user_status))
-                          RETURNING id, email, status, created_at;
+                          INSERT INTO app.users (role, first_name, last_name, email, password_hash, is_active)
+                          VALUES (CAST('customer' AS app.user_role), @first_name, @last_name, @email, @password_hash, TRUE)
+                          RETURNING id, email, is_active, created_at;
                           """;
+        cmd.Parameters.AddWithValue("first_name", "Customer");
+        cmd.Parameters.AddWithValue("last_name", "User");
         cmd.Parameters.AddWithValue("email", email);
         cmd.Parameters.AddWithValue("password_hash", passwordHash);
 
@@ -74,7 +76,7 @@ public class AuthController : ControllerBase
             {
                 id = reader.GetGuid(0),
                 email = reader.GetString(1),
-                status = reader.GetString(2),
+                isActive = reader.GetBoolean(2),
                 createdAt = reader.GetDateTime(3)
             });
         }
@@ -118,67 +120,76 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Validation failed.", errors = loginErrors });
         }
 
-        await using var conn = await _dataSource.OpenConnectionAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, email, password_hash, status FROM users WHERE email = @email LIMIT 1;";
-        cmd.Parameters.AddWithValue("email", email);
-
-        await using var reader = await cmd.ExecuteReaderAsync();
-        if (!await reader.ReadAsync())
+        try
         {
-            return Unauthorized(new { message = "Invalid credentials.", errors = new Dictionary<string, string>() });
-        }
+            await using var conn = await _dataSource.OpenConnectionAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, email, password_hash, is_active FROM app.users WHERE email = @email LIMIT 1;";
+            cmd.Parameters.AddWithValue("email", email);
 
-        var userId = reader.GetGuid(0);
-        var userEmail = reader.GetString(1);
-        var passwordHash = reader.GetString(2);
-        var userStatus = reader.GetString(3);
-
-        if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
-        {
-            return Unauthorized(new { message = "Invalid credentials.", errors = new Dictionary<string, string>() });
-        }
-
-        if (!string.Equals(userStatus, "active", StringComparison.OrdinalIgnoreCase))
-        {
-            return Unauthorized(new { message = "Account is not active.", errors = new Dictionary<string, string>() });
-        }
-
-        await reader.DisposeAsync();
-
-        var accessToken = GenerateAccessToken(userId, userEmail);
-        var refreshToken = GenerateSecureToken();
-        var refreshTokenHash = ComputeSha256(refreshToken);
-        var refreshExpiresAt = DateTime.UtcNow.AddDays(GetRefreshTokenDays());
-
-        await using var sessionCmd = conn.CreateCommand();
-        sessionCmd.CommandText = """
-                                 INSERT INTO auth_sessions (user_id, refresh_token_hash, device_info, ip_address, user_agent, expires_at)
-                                 VALUES (@user_id, @refresh_token_hash, @device_info, @ip_address, @user_agent, @expires_at);
-                                 """;
-        sessionCmd.Parameters.AddWithValue("user_id", userId);
-        sessionCmd.Parameters.AddWithValue("refresh_token_hash", refreshTokenHash);
-        sessionCmd.Parameters.AddWithValue("device_info", HttpContext.Request.Headers.UserAgent.ToString());
-        sessionCmd.Parameters.Add(new NpgsqlParameter("ip_address", NpgsqlDbType.Inet)
-        {
-            Value = (object?)HttpContext.Connection.RemoteIpAddress ?? DBNull.Value
-        });
-        sessionCmd.Parameters.AddWithValue("user_agent", HttpContext.Request.Headers.UserAgent.ToString());
-        sessionCmd.Parameters.AddWithValue("expires_at", refreshExpiresAt);
-        await sessionCmd.ExecuteNonQueryAsync();
-
-        SetAuthCookies(accessToken, refreshToken, refreshExpiresAt);
-
-        return Ok(new
-        {
-            accessToken,
-            user = new
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
             {
-                id = userId,
-                email = userEmail,
-                status = userStatus
+                return Unauthorized(new { message = "Invalid credentials.", errors = new Dictionary<string, string>() });
             }
-        });
+
+            var userId = reader.GetGuid(0);
+            var userEmail = reader.GetString(1);
+            var passwordHash = reader.GetString(2);
+            var isActive = reader.GetBoolean(3);
+
+            if (!BCrypt.Net.BCrypt.Verify(password, passwordHash))
+            {
+                return Unauthorized(new { message = "Invalid credentials.", errors = new Dictionary<string, string>() });
+            }
+
+            if (!isActive)
+            {
+                return Unauthorized(new { message = "Account is not active.", errors = new Dictionary<string, string>() });
+            }
+
+            await reader.DisposeAsync();
+
+            var accessToken = GenerateAccessToken(userId, userEmail);
+            var refreshToken = GenerateSecureToken();
+            var refreshTokenHash = ComputeSha256(refreshToken);
+            var refreshExpiresAt = DateTime.UtcNow.AddDays(GetRefreshTokenDays());
+
+            await using var sessionCmd = conn.CreateCommand();
+            sessionCmd.CommandText = """
+                                     INSERT INTO app.auth_sessions (user_id, session_token_hash, ip_address, user_agent, expires_at)
+                                     VALUES (@user_id, @session_token_hash, @ip_address, @user_agent, @expires_at);
+                                     """;
+            sessionCmd.Parameters.AddWithValue("user_id", userId);
+            sessionCmd.Parameters.AddWithValue("session_token_hash", refreshTokenHash);
+            sessionCmd.Parameters.Add(new NpgsqlParameter("ip_address", NpgsqlDbType.Inet)
+            {
+                Value = (object?)HttpContext.Connection.RemoteIpAddress ?? DBNull.Value
+            });
+            sessionCmd.Parameters.AddWithValue("user_agent", HttpContext.Request.Headers.UserAgent.ToString());
+            sessionCmd.Parameters.AddWithValue("expires_at", refreshExpiresAt);
+            await sessionCmd.ExecuteNonQueryAsync();
+
+            SetAuthCookies(accessToken, refreshToken, refreshExpiresAt);
+
+            return Ok(new
+            {
+                accessToken,
+                user = new
+                {
+                    id = userId,
+                    email = userEmail,
+                    isActive
+                }
+            });
+        }
+        catch (NpgsqlException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database connection failed. Please verify PostgreSQL credentials in backend/.env."
+            });
+        }
     }
 
     [Authorize]
@@ -203,9 +214,9 @@ public class AuthController : ControllerBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
                           SELECT s.id, s.user_id, u.email
-                          FROM auth_sessions s
-                          INNER JOIN users u ON u.id = s.user_id
-                          WHERE s.refresh_token_hash = @refresh_hash
+                          FROM app.auth_sessions s
+                          INNER JOIN app.users u ON u.id = s.user_id
+                          WHERE s.session_token_hash = @refresh_hash
                             AND s.revoked_at IS NULL
                             AND s.expires_at > NOW()
                           LIMIT 1;
@@ -229,18 +240,17 @@ public class AuthController : ControllerBase
         var newRefreshExpiry = DateTime.UtcNow.AddDays(GetRefreshTokenDays());
 
         await using var revokeCmd = conn.CreateCommand();
-        revokeCmd.CommandText = "UPDATE auth_sessions SET revoked_at = NOW() WHERE id = @session_id;";
+        revokeCmd.CommandText = "UPDATE app.auth_sessions SET revoked_at = NOW() WHERE id = @session_id;";
         revokeCmd.Parameters.AddWithValue("session_id", sessionId);
         await revokeCmd.ExecuteNonQueryAsync();
 
         await using var insertCmd = conn.CreateCommand();
         insertCmd.CommandText = """
-                                INSERT INTO auth_sessions (user_id, refresh_token_hash, device_info, ip_address, user_agent, expires_at)
-                                VALUES (@user_id, @refresh_hash, @device_info, @ip_address, @user_agent, @expires_at);
+                                INSERT INTO app.auth_sessions (user_id, session_token_hash, ip_address, user_agent, expires_at)
+                                VALUES (@user_id, @refresh_hash, @ip_address, @user_agent, @expires_at);
                                 """;
         insertCmd.Parameters.AddWithValue("user_id", userId);
         insertCmd.Parameters.AddWithValue("refresh_hash", newRefreshHash);
-        insertCmd.Parameters.AddWithValue("device_info", HttpContext.Request.Headers.UserAgent.ToString());
         insertCmd.Parameters.Add(new NpgsqlParameter("ip_address", NpgsqlDbType.Inet)
         {
             Value = (object?)HttpContext.Connection.RemoteIpAddress ?? DBNull.Value
@@ -261,7 +271,7 @@ public class AuthController : ControllerBase
             var refreshHash = ComputeSha256(refreshToken);
             await using var conn = await _dataSource.OpenConnectionAsync();
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE auth_sessions SET revoked_at = NOW() WHERE refresh_token_hash = @refresh_hash AND revoked_at IS NULL;";
+            cmd.CommandText = "UPDATE app.auth_sessions SET revoked_at = NOW() WHERE session_token_hash = @refresh_hash AND revoked_at IS NULL;";
             cmd.Parameters.AddWithValue("refresh_hash", refreshHash);
             await cmd.ExecuteNonQueryAsync();
         }

@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5080'
+const AUTH_SESSION_HINT_KEY = 'auth_session_hint'
 
 export type AuthUser = {
   id?: string
@@ -58,6 +59,10 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
 export const fetchCurrentUser = createAsyncThunk<AuthUser | null, void, { rejectValue: ApiErrorPayload }>(
   'auth/fetchCurrentUser',
   async (_, thunkAPI) => {
+    if (typeof window !== 'undefined' && window.localStorage.getItem(AUTH_SESSION_HINT_KEY) !== '1') {
+      return null
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         method: 'GET',
@@ -69,6 +74,9 @@ export const fetchCurrentUser = createAsyncThunk<AuthUser | null, void, { reject
 
       if (!response.ok) {
         if (response.status === 401) {
+          if (typeof window !== 'undefined') {
+            window.localStorage.removeItem(AUTH_SESSION_HINT_KEY)
+          }
           return null
         }
         return thunkAPI.rejectWithValue(
@@ -104,6 +112,9 @@ export const signIn = createAsyncThunk<AuthUser, AuthRequestBody, { rejectValue:
       }
 
       const data = (await response.json()) as { user: AuthUser }
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(AUTH_SESSION_HINT_KEY, '1')
+      }
       return data.user
     } catch (error) {
       return thunkAPI.rejectWithValue({
@@ -169,6 +180,9 @@ export const logoutUser = createAsyncThunk<boolean, void, { rejectValue: ApiErro
         return thunkAPI.rejectWithValue(await parseErrorPayload(response, 'Unable to log out'))
       }
 
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(AUTH_SESSION_HINT_KEY)
+      }
       return true
     } catch (error) {
       return thunkAPI.rejectWithValue({
@@ -215,6 +229,9 @@ const authSlice = createSlice({
         state.isHydrated = true
         state.user = action.payload
         state.isAuthenticated = Boolean(action.payload)
+        if (!action.payload && typeof window !== 'undefined') {
+          window.localStorage.removeItem(AUTH_SESSION_HINT_KEY)
+        }
       })
       .addCase(fetchCurrentUser.rejected, (state, action) => {
         state.isLoading = false
@@ -267,6 +284,9 @@ const authSlice = createSlice({
         state.isAuthenticated = false
         state.error = null
         state.fieldErrors = {}
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(AUTH_SESSION_HINT_KEY)
+        }
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.actionLoading = false
