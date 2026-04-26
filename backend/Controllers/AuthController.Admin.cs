@@ -1,0 +1,481 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Npgsql;
+
+namespace backend.Controllers;
+
+public partial class AuthController
+{
+    [Authorize]
+    [HttpGet("permissions/me")]
+    public async Task<IActionResult> GetMyEffectivePermissions()
+    {
+        var userIdRaw = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdRaw, out var userId))
+        {
+            return Unauthorized(new { message = "Invalid session token." });
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+
+        await using var roleCmd = conn.CreateCommand();
+        roleCmd.CommandText = """
+                              SELECT role::text
+                              FROM app.users
+                              WHERE id = @user_id
+                              LIMIT 1;
+                              """;
+        roleCmd.Parameters.AddWithValue("user_id", userId);
+        var roleResult = await roleCmd.ExecuteScalarAsync();
+        if (roleResult is not string role || string.IsNullOrWhiteSpace(role))
+        {
+            return Unauthorized(new { message = "User not found." });
+        }
+
+        await EnsureRolePermissionsAsync(conn, role);
+
+        await using var permissionCmd = conn.CreateCommand();
+        permissionCmd.CommandText = """
+                                    SELECT p.code
+                                    FROM app.role_permissions rp
+                                    INNER JOIN app.permissions p ON p.id = rp.permission_id
+                                    WHERE rp.role = CAST(@role AS app.user_role)
+                                    ORDER BY p.code;
+                                    """;
+        permissionCmd.Parameters.AddWithValue("role", role);
+
+        await using var reader = await permissionCmd.ExecuteReaderAsync();
+        var permissions = new List<string>();
+        while (await reader.ReadAsync())
+        {
+            permissions.Add(reader.GetString(0));
+        }
+
+        return Ok(new
+        {
+            userId,
+            role,
+            permissions
+        });
+    }
+
+    [Authorize]
+    [HttpGet("users")]
+    public async Task<IActionResult> ListUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var currentUserRole = await GetCurrentUserRoleAsync();
+        if (!CanAccessDashboard(currentUserRole))
+        {
+            return Forbid();
+        }
+
+        var safePage = Math.Max(1, page);
+        var safePageSize = Math.Clamp(pageSize, 5, 50);
+        var offset = (safePage - 1) * safePageSize;
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+
+        await using var countCmd = conn.CreateCommand();
+        countCmd.CommandText = "SELECT COUNT(*) FROM app.users;";
+        var totalItems = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          SELECT
+                              id,
+                              role::text,
+                              first_name,
+                              last_name,
+                              email,
+                              mobile,
+                              is_active,
+                              created_at
+                          FROM app.users
+                          ORDER BY created_at DESC
+                          LIMIT @limit OFFSET @offset;
+                          """;
+        cmd.Parameters.AddWithValue("limit", safePageSize);
+        cmd.Parameters.AddWithValue("offset", offset);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var items = new List<object>();
+        while (await reader.ReadAsync())
+        {
+            items.Add(new
+            {
+                id = reader.GetGuid(0),
+                role = reader.GetString(1),
+                firstName = reader.GetString(2),
+                lastName = reader.GetString(3),
+                email = reader.GetString(4),
+                mobile = reader.IsDBNull(5) ? null : reader.GetString(5),
+                isActive = reader.GetBoolean(6),
+                createdAt = reader.GetDateTime(7)
+            });
+        }
+
+        return Ok(new
+        {
+            items,
+            page = safePage,
+            pageSize = safePageSize,
+            totalItems,
+            totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)safePageSize))
+        });
+    }
+
+    [Authorize]
+    [HttpGet("activity-logs")]
+    public async Task<IActionResult> ListActivityLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var currentUserRole = await GetCurrentUserRoleAsync();
+        if (!CanAccessDashboard(currentUserRole))
+        {
+            return Forbid();
+        }
+
+        var safePage = Math.Max(1, page);
+        var safePageSize = Math.Clamp(pageSize, 5, 50);
+        var offset = (safePage - 1) * safePageSize;
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+
+        await using var countCmd = conn.CreateCommand();
+        countCmd.CommandText = "SELECT COUNT(*) FROM app.audit_logs;";
+        var totalItems = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          SELECT
+                              al.id,
+                              COALESCE(u.first_name, 'Unknown') AS first_name,
+                              COALESCE(u.last_name, 'User') AS last_name,
+                              COALESCE(u.email, 'unknown@system.local') AS email,
+                              al.action,
+                              al.created_at
+                          FROM app.audit_logs al
+                          LEFT JOIN app.users u ON u.id = al.user_id
+                          ORDER BY al.created_at DESC
+                          LIMIT @limit OFFSET @offset;
+                          """;
+        cmd.Parameters.AddWithValue("limit", safePageSize);
+        cmd.Parameters.AddWithValue("offset", offset);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var items = new List<object>();
+        while (await reader.ReadAsync())
+        {
+            items.Add(new
+            {
+                id = reader.GetGuid(0),
+                firstName = reader.GetString(1),
+                lastName = reader.GetString(2),
+                email = reader.GetString(3),
+                action = reader.GetString(4),
+                createdAt = reader.GetDateTime(5)
+            });
+        }
+
+        return Ok(new
+        {
+            items,
+            page = safePage,
+            pageSize = safePageSize,
+            totalItems,
+            totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)safePageSize))
+        });
+    }
+
+    [Authorize]
+    [HttpPut("users/{id:guid}")]
+    public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UpdateUserRequest request)
+    {
+        var currentUserRole = await GetCurrentUserRoleAsync();
+        if (!CanAccessDashboard(currentUserRole))
+        {
+            return Forbid();
+        }
+
+        var firstName = request.FirstName?.Trim() ?? string.Empty;
+        var lastName = request.LastName?.Trim() ?? string.Empty;
+        var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        var mobile = request.Mobile?.Trim();
+        var nextRole = request.Role?.Trim().ToLowerInvariant() ?? string.Empty;
+        var isActive = request.IsActive;
+
+        var errors = new Dictionary<string, string>();
+        if (string.IsNullOrWhiteSpace(firstName) || firstName.Length < 2)
+        {
+            errors["firstName"] = "First name must be at least 2 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(lastName) || lastName.Length < 2)
+        {
+            errors["lastName"] = "Last name must be at least 2 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+        {
+            errors["email"] = "Email format is invalid.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(mobile) && mobile.Length < 8)
+        {
+            errors["mobile"] = "Mobile must be at least 8 characters.";
+        }
+
+        if (!IsValidUserRole(nextRole))
+        {
+            errors["role"] = "Role must be one of: admin, store_manager, staff, customer.";
+        }
+
+        if (errors.Count > 0)
+        {
+            return BadRequest(new { message = "Validation failed.", errors });
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        var actorUserId = GetCurrentUserId();
+        string? previousRole = null;
+        await using (var previousRoleCmd = conn.CreateCommand())
+        {
+            previousRoleCmd.CommandText = "SELECT role::text FROM app.users WHERE id = @user_id LIMIT 1;";
+            previousRoleCmd.Parameters.AddWithValue("user_id", id);
+            previousRole = await previousRoleCmd.ExecuteScalarAsync() as string;
+        }
+
+        await EnsureRolePermissionsAsync(conn, nextRole);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          UPDATE app.users
+                          SET
+                              first_name = @first_name,
+                              last_name = @last_name,
+                              email = @email,
+                              mobile = @mobile,
+                              role = CAST(@role AS app.user_role),
+                              is_active = @is_active,
+                              updated_at = NOW()
+                          WHERE id = @user_id
+                          RETURNING
+                              id,
+                              role::text,
+                              first_name,
+                              last_name,
+                              email,
+                              mobile,
+                              is_active,
+                              created_at,
+                              updated_at;
+                          """;
+        cmd.Parameters.AddWithValue("user_id", id);
+        cmd.Parameters.AddWithValue("first_name", firstName);
+        cmd.Parameters.AddWithValue("last_name", lastName);
+        cmd.Parameters.AddWithValue("email", email);
+        cmd.Parameters.AddWithValue("mobile", (object?)mobile ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("role", nextRole);
+        cmd.Parameters.AddWithValue("is_active", isActive);
+
+        try
+        {
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+            {
+                return NotFound(new { message = "User not found." });
+            }
+
+            var updatedId = reader.GetGuid(0);
+            var updatedRole = reader.GetString(1);
+            var updatedFirstName = reader.GetString(2);
+            var updatedLastName = reader.GetString(3);
+            var updatedEmail = reader.GetString(4);
+            var updatedMobile = reader.IsDBNull(5) ? null : reader.GetString(5);
+            var updatedIsActive = reader.GetBoolean(6);
+            var updatedCreatedAt = reader.GetDateTime(7);
+            var updatedAt = reader.GetDateTime(8);
+            await reader.DisposeAsync();
+
+            await WriteAuditLogAsync(
+                conn,
+                null,
+                actorUserId,
+                "user.updated",
+                "user",
+                id,
+                new { fromRole = previousRole, toRole = nextRole, isActive }
+            );
+
+            return Ok(new
+            {
+                id = updatedId,
+                role = updatedRole,
+                firstName = updatedFirstName,
+                lastName = updatedLastName,
+                email = updatedEmail,
+                mobile = updatedMobile,
+                isActive = updatedIsActive,
+                createdAt = updatedCreatedAt,
+                updatedAt
+            });
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            return Conflict(new
+            {
+                message = "Email is already registered.",
+                errors = new Dictionary<string, string> { ["email"] = "This email already exists." }
+            });
+        }
+    }
+
+    [Authorize]
+    [HttpPut("users/{id:guid}/role")]
+    public async Task<IActionResult> UpdateUserRole([FromRoute] Guid id, [FromBody] UpdateUserRoleRequest request)
+    {
+        var currentUserRole = await GetCurrentUserRoleAsync();
+        if (!CanAccessDashboard(currentUserRole))
+        {
+            return Forbid();
+        }
+
+        var nextRole = request.Role?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (!IsValidUserRole(nextRole))
+        {
+            return BadRequest(new
+            {
+                message = "Validation failed.",
+                errors = new Dictionary<string, string>
+                {
+                    ["role"] = "Role must be one of: admin, store_manager, staff, customer."
+                }
+            });
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        var actorUserId = GetCurrentUserId();
+        string? previousRole = null;
+        await using (var previousRoleCmd = conn.CreateCommand())
+        {
+            previousRoleCmd.CommandText = "SELECT role::text FROM app.users WHERE id = @user_id LIMIT 1;";
+            previousRoleCmd.Parameters.AddWithValue("user_id", id);
+            var previousRoleResult = await previousRoleCmd.ExecuteScalarAsync();
+            previousRole = previousRoleResult as string;
+        }
+
+        await EnsureRolePermissionsAsync(conn, nextRole);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          UPDATE app.users
+                          SET role = CAST(@role AS app.user_role), updated_at = NOW()
+                          WHERE id = @user_id
+                          RETURNING
+                              id,
+                              role::text,
+                              first_name,
+                              last_name,
+                              email,
+                              mobile,
+                              is_active,
+                              created_at,
+                              updated_at;
+                          """;
+        cmd.Parameters.AddWithValue("role", nextRole);
+        cmd.Parameters.AddWithValue("user_id", id);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+        {
+            return NotFound(new { message = "User not found." });
+        }
+
+        var updatedId = reader.GetGuid(0);
+        var updatedRole = reader.GetString(1);
+        var updatedFirstName = reader.GetString(2);
+        var updatedLastName = reader.GetString(3);
+        var updatedEmail = reader.GetString(4);
+        var updatedMobile = reader.IsDBNull(5) ? null : reader.GetString(5);
+        var updatedIsActive = reader.GetBoolean(6);
+        var updatedCreatedAt = reader.GetDateTime(7);
+        var updatedAt = reader.GetDateTime(8);
+        await reader.DisposeAsync();
+
+        await WriteAuditLogAsync(
+            conn,
+            null,
+            actorUserId,
+            "user.role_updated",
+            "user",
+            id,
+            new { fromRole = previousRole, toRole = nextRole }
+        );
+
+        return Ok(new
+        {
+            id = updatedId,
+            role = updatedRole,
+            firstName = updatedFirstName,
+            lastName = updatedLastName,
+            email = updatedEmail,
+            mobile = updatedMobile,
+            isActive = updatedIsActive,
+            createdAt = updatedCreatedAt,
+            updatedAt
+        });
+    }
+
+    [Authorize]
+    [HttpDelete("users/{id:guid}")]
+    public async Task<IActionResult> SoftDeleteUser([FromRoute] Guid id)
+    {
+        var currentUserRole = await GetCurrentUserRoleAsync();
+        if (!CanAccessDashboard(currentUserRole))
+        {
+            return Forbid();
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        var actorUserId = GetCurrentUserId();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          UPDATE app.users
+                          SET is_active = FALSE, updated_at = NOW()
+                          WHERE id = @user_id
+                          RETURNING id, first_name, last_name, email, role::text;
+                          """;
+        cmd.Parameters.AddWithValue("user_id", id);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+        {
+            return NotFound(new { message = "User not found." });
+        }
+
+        var deletedId = reader.GetGuid(0);
+        var deletedFirstName = reader.GetString(1);
+        var deletedLastName = reader.GetString(2);
+        var deletedEmail = reader.GetString(3);
+        var deletedRole = reader.GetString(4);
+        await reader.DisposeAsync();
+
+        await WriteAuditLogAsync(
+            conn,
+            null,
+            actorUserId,
+            "user.soft_deleted",
+            "user",
+            deletedId,
+            new { email = deletedEmail, role = deletedRole }
+        );
+
+        return Ok(new
+        {
+            id = deletedId,
+            firstName = deletedFirstName,
+            lastName = deletedLastName,
+            email = deletedEmail,
+            role = deletedRole,
+            isActive = false
+        });
+    }
+}

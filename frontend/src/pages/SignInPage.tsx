@@ -27,6 +27,7 @@ function SignInPage() {
     () => ({ ...fieldErrors, ...clientErrors }),
     [fieldErrors, clientErrors],
   )
+  const isSubmitting = actionLoading
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />
@@ -41,6 +42,9 @@ function SignInPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (isSubmitting) {
+      return
+    }
     const parsed = signInSchema.safeParse(formData)
     if (!parsed.success) {
       const nextErrors: Record<string, string> = {}
@@ -78,7 +82,7 @@ function SignInPage() {
           </p>
         )}
 
-        <form className="mt-2 space-y-3" onSubmit={handleSubmit} noValidate>
+        <form className="mt-2 space-y-3" onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
           <div>
             <label htmlFor="email" className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
               <FiMail className="h-4 w-4 text-slate-500" aria-hidden="true" />
@@ -90,8 +94,9 @@ function SignInPage() {
               type="email"
               value={formData.email}
               onChange={handleChange}
+              disabled={isSubmitting}
               className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
-              placeholder="you@example.com"
+              placeholder="your@example.com"
               autoComplete="email"
             />
             {mergedErrors.email && (
@@ -111,6 +116,7 @@ function SignInPage() {
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={handleChange}
+                disabled={isSubmitting}
                 className="w-full rounded-md border border-slate-300 px-3 py-2.5 pr-16 text-sm outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
                 placeholder="Enter your password"
                 autoComplete="current-password"
@@ -118,6 +124,7 @@ function SignInPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
+                disabled={isSubmitting}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -131,17 +138,18 @@ function SignInPage() {
 
           <button
             type="submit"
-            disabled={actionLoading}
+            disabled={isSubmitting}
             className="flex w-full items-center justify-center gap-2 rounded-md bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {actionLoading && (
+            {isSubmitting && (
               <span
                 className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                 aria-hidden="true"
               />
             )}
             <FiArrowRight className="h-4 w-4" aria-hidden="true" />
-            {actionLoading ? 'Signing in...' : 'Sign In'}
+            {isSubmitting ? 'Signing in...' : 'Sign In'}
+            {isSubmitting && <span className="sr-only">Sign in in progress</span>}
           </button>
         </form>
 

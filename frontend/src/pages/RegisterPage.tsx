@@ -47,6 +47,7 @@ function RegisterPage() {
   const [clientErrors, setClientErrors] = useState<Record<string, string | undefined>>({})
 
   const mergedErrors = useMemo(() => ({ ...fieldErrors, ...clientErrors }), [fieldErrors, clientErrors])
+  const isSubmitting = actionLoading
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />
@@ -61,6 +62,9 @@ function RegisterPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (isSubmitting) {
+      return
+    }
     const parsed = registerSchema.safeParse(formData)
     if (!parsed.success) {
       const nextErrors: Record<string, string> = {}
@@ -95,15 +99,15 @@ function RegisterPage() {
           <FiUserPlus className="h-6 w-6 text-sky-600" aria-hidden="true" />
           Register
         </h1>
-        <p className="mt-1 text-center text-sm text-slate-600">Create your account to manage orders and storefront data.</p>
+        <p className="mt-1 text-center text-sm text-slate-600">Create your account and ready for shopping!</p>
 
         {error && <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit} noValidate>
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="firstName" className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
-              <FiUser className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                <FiUser className="h-4 w-4 text-slate-500" aria-hidden="true" />
                 First Name
               </label>
               <input
@@ -112,8 +116,9 @@ function RegisterPage() {
                 type="text"
                 value={formData.firstName}
                 onChange={handleChange}
+                disabled={isSubmitting}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
-                placeholder="John"
+                placeholder="Thang"
                 autoComplete="given-name"
               />
               {mergedErrors.firstName && <p className="mt-1 text-xs text-red-600">{mergedErrors.firstName}</p>}
@@ -121,7 +126,7 @@ function RegisterPage() {
 
             <div>
               <label htmlFor="lastName" className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
-              <FiUser className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                <FiUser className="h-4 w-4 text-slate-500" aria-hidden="true" />
                 Last Name
               </label>
               <input
@@ -130,8 +135,9 @@ function RegisterPage() {
                 type="text"
                 value={formData.lastName}
                 onChange={handleChange}
+                disabled={isSubmitting}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
-                placeholder="Doe"
+                placeholder="Truong"
                 autoComplete="family-name"
               />
               {mergedErrors.lastName && <p className="mt-1 text-xs text-red-600">{mergedErrors.lastName}</p>}
@@ -149,8 +155,9 @@ function RegisterPage() {
               type="email"
               value={formData.email}
               onChange={handleChange}
+              disabled={isSubmitting}
               className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
-              placeholder="you@example.com"
+              placeholder="your@example.com"
               autoComplete="email"
             />
             {mergedErrors.email && <p className="mt-1 text-xs text-red-600">{mergedErrors.email}</p>}
@@ -167,6 +174,7 @@ function RegisterPage() {
               type="password"
               value={formData.password}
               onChange={handleChange}
+              disabled={isSubmitting}
               className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
               placeholder="Choose a strong password"
               autoComplete="new-password"
@@ -185,6 +193,7 @@ function RegisterPage() {
               type="tel"
               value={formData.mobile}
               onChange={handleChange}
+              disabled={isSubmitting}
               className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
               placeholder="04xx xxx xxx"
               autoComplete="tel"
@@ -203,6 +212,7 @@ function RegisterPage() {
               type="password"
               value={formData.confirmPassword}
               onChange={handleChange}
+              disabled={isSubmitting}
               className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
               placeholder="Re-enter your password"
               autoComplete="new-password"
@@ -212,17 +222,18 @@ function RegisterPage() {
 
           <button
             type="submit"
-            disabled={actionLoading}
+            disabled={isSubmitting}
             className="flex w-full items-center justify-center gap-2 rounded-md bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {actionLoading && (
+            {isSubmitting && (
               <span
                 className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                 aria-hidden="true"
               />
             )}
             <FiUserPlus className="h-4 w-4" aria-hidden="true" />
-            {actionLoading ? 'Creating account...' : 'Create Account'}
+            {isSubmitting ? 'Creating account...' : 'Create Account'}
+            {isSubmitting && <span className="sr-only">Registration in progress</span>}
           </button>
         </form>
 

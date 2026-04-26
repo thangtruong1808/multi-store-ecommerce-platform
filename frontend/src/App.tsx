@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from './app/hooks'
 import { fetchCurrentUser } from './features/auth/authSlice'
 import Navbar from './components/Navbar'
@@ -7,6 +7,8 @@ import SignInPage from './pages/SignInPage'
 import RegisterPage from './pages/RegisterPage'
 import ProfilePage from './pages/ProfilePage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import DashboardPage from './pages/DashboardPage'
+import { AdminRoute, GuestOnlyRoute, ProtectedRoute } from './components/RouteGuards'
 
 function HomePage() {
   // Redux auth state
@@ -50,6 +52,8 @@ function HomePage() {
 function App() {
   const dispatch = useAppDispatch()
   const { user, isAuthenticated } = useAppSelector((state) => state.auth)
+  const location = useLocation()
+  const isDashboardRoute = location.pathname.startsWith('/dashboard')
 
   useEffect(() => {
     dispatch(fetchCurrentUser())
@@ -57,18 +61,27 @@ function App() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-800">
-      <Navbar
-        isAuthenticated={isAuthenticated}
-        userEmail={user?.email}
-        firstName={user?.firstName}
-        lastName={user?.lastName}
-      />
+      {!isDashboardRoute && (
+        <Navbar
+          isAuthenticated={isAuthenticated}
+          userEmail={user?.email}
+          firstName={user?.firstName}
+          lastName={user?.lastName}
+        />
+      )}
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/signin" element={<SignInPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route element={<GuestOnlyRoute />}>
+          <Route path="/signin" element={<SignInPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        </Route>
+        <Route element={<ProtectedRoute />}>
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+        <Route element={<AdminRoute />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </main>

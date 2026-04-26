@@ -37,6 +37,9 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName }: NavbarProps
             <a href="#" className="hover:text-slate-900">
               Activity Logs
             </a>
+            <Link to="/dashboard" className="hover:text-slate-900">
+              Dashboard
+            </Link>
           </nav>
         </div>
 
