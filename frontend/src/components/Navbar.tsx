@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiChevronRight, FiSearch } from 'react-icons/fi'
+import { useAppDispatch } from '../app/hooks'
+import { logoutUser } from '../features/auth/authSlice'
 import BrandMark from './BrandMark'
 
 type NavbarProps = {
@@ -20,6 +22,7 @@ type PublicCategory = {
 }
 
 function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: NavbarProps) {
+  const dispatch = useAppDispatch()
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || 'U'
   const [categories, setCategories] = useState<PublicCategory[]>([])
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false)
@@ -31,6 +34,7 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [isSearchSubmitting, setIsSearchSubmitting] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -148,6 +152,16 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
     navigate(`/?${query.toString()}`)
   }
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    const result = await dispatch(logoutUser())
+    setIsSigningOut(false)
+    if (logoutUser.fulfilled.match(result)) {
+      setIsUserMenuOpen(false)
+      navigate('/signin', { replace: true })
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur md:relative">
       <div className="relative flex w-full items-center justify-between px-4 py-3 md:px-6">
@@ -261,9 +275,20 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
                       </Link>
                     </li>
                     <li>
-                      <Link to="/signin" className="block rounded px-2 py-1.5 hover:bg-slate-100">
-                        Sign out
-                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void handleSignOut()}
+                        disabled={isSigningOut}
+                        className="inline-flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {isSigningOut ? (
+                          <span
+                            className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-sky-200 border-t-sky-600"
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {isSigningOut ? 'Signing out...' : 'Sign out'}
+                      </button>
                     </li>
                   </ul>
                 </div>

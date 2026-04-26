@@ -92,6 +92,21 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback
 }
 
+const tryRefreshAccessToken = async (): Promise<boolean> => {
+  try {
+    const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    return refreshResponse.ok
+  } catch {
+    return false
+  }
+}
+
 export const fetchCurrentUser = createAsyncThunk<AuthUser | null, void, { rejectValue: ApiErrorPayload }>(
   'auth/fetchCurrentUser',
   async (_, thunkAPI) => {
@@ -100,7 +115,10 @@ export const fetchCurrentUser = createAsyncThunk<AuthUser | null, void, { reject
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      // Try to refresh first so `/api/auth/me` doesn't immediately 401 when the access token just expired.
+      await tryRefreshAccessToken()
+
+      let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -110,6 +128,19 @@ export const fetchCurrentUser = createAsyncThunk<AuthUser | null, void, { reject
 
       if (!response.ok) {
         if (response.status === 401) {
+          const refreshed = await tryRefreshAccessToken()
+          if (refreshed) {
+            response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+            if (response.ok) {
+              return (await response.json()) as AuthUser
+            }
+          }
           if (typeof window !== 'undefined') {
             window.localStorage.removeItem(AUTH_SESSION_HINT_KEY)
           }

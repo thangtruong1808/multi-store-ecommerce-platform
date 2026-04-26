@@ -190,6 +190,64 @@ function Spinner({ className = 'h-4 w-4' }: { className?: string }) {
   )
 }
 
+let refreshInFlight: Promise<boolean> | null = null
+let hasPrimedDashboardAccessToken = false
+let primeAccessTokenInFlight: Promise<void> | null = null
+
+async function refreshAccessTokenShared(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        return refreshResponse.ok
+      } catch {
+        return false
+      } finally {
+        refreshInFlight = null
+      }
+    })()
+  }
+
+  return refreshInFlight
+}
+
+async function ensureDashboardAccessTokenPrimed(): Promise<void> {
+  if (hasPrimedDashboardAccessToken) {
+    return
+  }
+
+  if (!primeAccessTokenInFlight) {
+    primeAccessTokenInFlight = (async () => {
+      const refreshed = await refreshAccessTokenShared()
+      hasPrimedDashboardAccessToken = refreshed
+    })().finally(() => {
+      primeAccessTokenInFlight = null
+    })
+  }
+
+  await primeAccessTokenInFlight
+}
+
+async function fetchWithAutoRefresh(input: string, init?: RequestInit): Promise<Response> {
+  await ensureDashboardAccessTokenPrimed()
+
+  const response = await fetch(input, init)
+  if (response.status !== 401) {
+    return response
+  }
+
+  const refreshed = await refreshAccessTokenShared()
+  if (!refreshed) {
+    return response
+  }
+
+  return fetch(input, init)
+}
+
 function DashboardPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
@@ -357,7 +415,7 @@ function DashboardPage() {
       setIsUsersLoading(true)
       setUsersError(null)
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/users?page=${page}&pageSize=${pageSize}`, {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/auth/users?page=${page}&pageSize=${pageSize}`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -402,7 +460,7 @@ function DashboardPage() {
       setIsActivityLogsLoading(true)
       setActivityLogsError(null)
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/activity-logs?page=${page}&pageSize=${pageSize}`, {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/auth/activity-logs?page=${page}&pageSize=${pageSize}`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -460,7 +518,7 @@ function DashboardPage() {
         if (categorySearchText.trim().length > 0) {
           query.set('q', categorySearchText.trim())
         }
-        const response = await fetch(`${API_BASE_URL}/api/categories?${query.toString()}`, {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/categories?${query.toString()}`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -510,7 +568,7 @@ function DashboardPage() {
     const loadParents = async () => {
       setIsCategoryParentsLoading(true)
       try {
-        const response = await fetch(`${API_BASE_URL}/api/categories/parents?level=${categoryFilterLevel}`, {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/categories/parents?level=${categoryFilterLevel}`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -561,7 +619,7 @@ function DashboardPage() {
     const loadFormParents = async () => {
       setIsCategoryFormParentsLoading(true)
       try {
-        const response = await fetch(`${API_BASE_URL}/api/categories/parents?level=${categoryForm.level}`, {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/categories/parents?level=${categoryForm.level}`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -612,7 +670,7 @@ function DashboardPage() {
         if (productSearchText.trim()) {
           query.set('q', productSearchText.trim())
         }
-        const response = await fetch(`${API_BASE_URL}/api/products?${query.toString()}`, {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/products?${query.toString()}`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -656,7 +714,7 @@ function DashboardPage() {
     const loadCategoryTree = async () => {
       setIsProductCategoriesLoading(true)
       try {
-        const response = await fetch(`${API_BASE_URL}/api/products/categories/tree`, {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/products/categories/tree`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -823,7 +881,7 @@ function DashboardPage() {
   const openEditProductForm = async (product: ProductItem) => {
     setInlineStatusMessage(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/${product.id}`, {
+      const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/products/${product.id}`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -864,7 +922,7 @@ function DashboardPage() {
     setIsEditSaving(true)
     setInlineStatusMessage(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/users/${editingUser.id}`, {
+      const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/auth/users/${editingUser.id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -902,7 +960,7 @@ function DashboardPage() {
     setDeletingUserId(user.id)
     setInlineStatusMessage(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/users/${user.id}`, {
+      const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/auth/users/${user.id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -946,7 +1004,7 @@ function DashboardPage() {
         level: Number(categoryForm.level),
         parentId: categoryForm.level === '1' || categoryForm.parentId === 'none' ? null : categoryForm.parentId,
       }
-      const response = await fetch(
+      const response = await fetchWithAutoRefresh(
         editingCategory ? `${API_BASE_URL}/api/categories/${editingCategory.id}` : `${API_BASE_URL}/api/categories`,
         {
           method: editingCategory ? 'PUT' : 'POST',
@@ -994,7 +1052,7 @@ function DashboardPage() {
     setDeletingCategoryId(category.id)
     setInlineStatusMessage(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories/${category.id}`, {
+      const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/categories/${category.id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -1057,7 +1115,7 @@ function DashboardPage() {
         imageS3Keys: productForm.imageS3Keys.map((item) => item.trim()).filter((item) => item.length > 0),
         videoUrls: productForm.videoUrls.map((item) => item.trim()).filter((item) => item.length > 0),
       }
-      const response = await fetch(
+      const response = await fetchWithAutoRefresh(
         editingProduct ? `${API_BASE_URL}/api/products/${editingProduct.id}` : `${API_BASE_URL}/api/products`,
         {
           method: editingProduct ? 'PUT' : 'POST',
@@ -1127,7 +1185,7 @@ function DashboardPage() {
     setDeletingProductId(product.id)
     setInlineStatusMessage(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/${product.id}`, {
+      const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/products/${product.id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
