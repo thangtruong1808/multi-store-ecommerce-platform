@@ -1,10 +1,10 @@
 import {
-  FiGrid,
-  FiLayers,
-  FiList,
+  FiActivity,
+  FiFileText,
+  FiGift,
   FiPackage,
-  FiRefreshCw,
-  FiSettings,
+  FiShoppingBag,
+  FiTag,
   FiUsers,
 } from 'react-icons/fi'
 
@@ -14,12 +14,12 @@ export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
 
 export const sideBarItems: SidebarItem[] = [
   { key: 'users', label: 'Users', icon: FiUsers },
-  { key: 'stores', label: 'Stores', icon: FiGrid },
-  { key: 'categories', label: 'Categories', icon: FiList },
+  { key: 'stores', label: 'Stores', icon: FiShoppingBag },
+  { key: 'categories', label: 'Categories', icon: FiTag },
   { key: 'products', label: 'Products', icon: FiPackage },
-  { key: 'vouchers', label: 'Vouchers', icon: FiLayers },
-  { key: 'invoices', label: 'Invoices', icon: FiSettings },
-  { key: 'activityLogs', label: 'Activity Logs', icon: FiRefreshCw },
+  { key: 'vouchers', label: 'Vouchers', icon: FiGift },
+  { key: 'invoices', label: 'Invoices', icon: FiFileText },
+  { key: 'activityLogs', label: 'Activity Logs', icon: FiActivity },
 ]
 
 export const mockData: Record<
