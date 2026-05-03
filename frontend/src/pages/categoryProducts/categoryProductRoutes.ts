@@ -1,3 +1,8 @@
+/** Department hub: all subcategories under a level-1 department (e.g. `/laptop/browse`). */
+export function departmentBrowsePath(level1Slug: string) {
+  return `/${encodeURIComponent(level1Slug.trim())}/browse`
+}
+
 /** Tiered URL: `/{level1Slug}/{categorySlug}/products` (e.g. `/desktop/lenovo/products`). */
 export function categoryProductsPath(level1Slug: string, categorySlug: string) {
   return `/${encodeURIComponent(level1Slug.trim())}/${encodeURIComponent(categorySlug.trim())}/products`
@@ -13,4 +18,9 @@ export function publicProductDetailPath(level1Slug: string, categorySlug: string
 /** Matches paths like `/desktop/lenovo/products` (not `/shop/...`). */
 export function isTieredCategoryProductsPath(pathname: string): boolean {
   return /^\/[^/]+\/[^/]+\/products\/?$/.test(pathname)
+}
+
+/** Matches department hub URLs like `/laptop/browse`. */
+export function isDepartmentBrowsePath(pathname: string): boolean {
+  return /^\/[^/]+\/browse\/?$/.test(pathname)
 }

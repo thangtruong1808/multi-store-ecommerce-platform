@@ -9,6 +9,7 @@ import ProfilePage from './pages/ProfilePage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import { CategoryProductsBySlugPage } from './pages/categoryProducts/CategoryProductsBrowsePage'
+import { DepartmentBrowsePage } from './pages/categoryProducts/DepartmentBrowsePage'
 import { PublicProductDetailPage } from './pages/categoryProducts/PublicProductDetailPage'
 import { LegacyShopCategoryRedirect } from './pages/categoryProducts/LegacyShopCategoryRedirect'
 import { LegacyShopSlugRedirect } from './pages/categoryProducts/LegacyShopSlugRedirect'
@@ -85,6 +86,7 @@ function App() {
         <Route path="/shop/categories/level-2/:categoryId/products" element={<LegacyShopCategoryRedirect />} />
         <Route path="/shop/categories/level-3/:categoryId/products" element={<LegacyShopCategoryRedirect />} />
         <Route path="/shop/:categorySlug/products" element={<LegacyShopSlugRedirect />} />
+        <Route path="/:level1Slug/browse" element={<DepartmentBrowsePage />} />
         <Route path="/:level1Slug/:categorySlug/products/:productSku" element={<PublicProductDetailPage />} />
         <Route path="/:level1Slug/:categorySlug/products" element={<CategoryProductsBySlugPage />} />
         <Route path="/clearance" element={<ClearancePage />} />

@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom'
 import { FiChevronRight } from 'react-icons/fi'
-import { categoryProductsPath, isTieredCategoryProductsPath } from '../../pages/categoryProducts/categoryProductRoutes'
+import {
+  categoryProductsPath,
+  departmentBrowsePath,
+  isDepartmentBrowsePath,
+  isTieredCategoryProductsPath,
+} from '../../pages/categoryProducts/categoryProductRoutes'
 import type { PublicCategory } from './types'
 import { getLevel2ByParent, getLevel3ByParent } from './categoryTree'
 
@@ -87,18 +92,20 @@ export function NavbarMobileNavPanel({
                   className={`${mobileNavRowClass} ${
                     ((pathname === '/' ||
                       pathname.startsWith('/shop/') ||
-                      isTieredCategoryProductsPath(pathname)) &&
+                      isTieredCategoryProductsPath(pathname) ||
+                      isDepartmentBrowsePath(pathname)) &&
                       selectedLevel1CategoryId === category.id)
                       ? 'bg-sky-50'
                       : ''
                   } text-slate-700`}
                 >
                   <Link
-                    to={`/?categoryId=${encodeURIComponent(category.id)}`}
+                    to={departmentBrowsePath(category.slug)}
                     className={`min-w-0 flex-1 truncate py-0.5 ${
                       ((pathname === '/' ||
                         pathname.startsWith('/shop/') ||
-                        isTieredCategoryProductsPath(pathname)) &&
+                        isTieredCategoryProductsPath(pathname) ||
+                        isDepartmentBrowsePath(pathname)) &&
                         selectedLevel1CategoryId === category.id)
                         ? 'font-semibold text-sky-700'
                         : 'text-slate-700 hover:text-sky-700'

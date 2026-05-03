@@ -279,6 +279,66 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
+    /// Storefront: other products in the same category scope as <see cref="ListPublicProductsCoreAsync"/> —
+    /// <paramref name="categoryId"/> is the browse node (e.g. resolved slug), including products in descendant categories.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("public/related")]
+    public async Task<IActionResult> ListRelatedPublicProducts(
+        [FromQuery] Guid categoryId,
+        [FromQuery] Guid? excludeProductId = null,
+        [FromQuery] int take = 8)
+    {
+        var safeTake = Math.Clamp(take, 1, 24);
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          WITH RECURSIVE selected_categories AS (
+                              SELECT c.id
+                              FROM app.categories c
+                              WHERE c.id = @category_id
+                              UNION ALL
+                              SELECT child.id
+                              FROM app.categories child
+                              INNER JOIN selected_categories sc ON child.parent_id = sc.id
+                          )
+                          SELECT
+                              p.id,
+                              p.sku,
+                              p.name,
+                              p.base_price,
+                              c.name AS category_name
+                          FROM app.products p
+                          LEFT JOIN app.categories c ON c.id = p.category_id
+                          WHERE lower(p.status) = 'active'
+                            AND p.category_id IN (SELECT id FROM selected_categories)
+                            AND (@exclude_id IS NULL OR p.id <> @exclude_id)
+                          ORDER BY p.created_at DESC
+                          LIMIT @take;
+                          """;
+        cmd.Parameters.AddWithValue("category_id", categoryId);
+        AddNullableUuidParameter(cmd, "exclude_id", excludeProductId);
+        cmd.Parameters.AddWithValue("take", safeTake);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var items = new List<object>();
+        while (await reader.ReadAsync())
+        {
+            items.Add(new
+            {
+                id = reader.GetGuid(0),
+                sku = reader.GetString(1),
+                name = reader.GetString(2),
+                basePrice = reader.GetDecimal(3),
+                categoryName = reader.IsDBNull(4) ? null : reader.GetString(4),
+            });
+        }
+
+        return Ok(new { items });
+    }
+
+    /// <summary>
     /// Walks ancestors from every row matching <paramref name="categorySlug"/>;
     /// keeps leaf ids whose chain includes level 1 with <paramref name="level1Slug"/>.
     /// If several categories share the same slug under that department, picks the one with the greatest <c>level</c> (deepest), e.g. L2 over L1.

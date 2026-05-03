@@ -50,6 +50,7 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
   const pathname = location.pathname
   const matchShopSlugProducts = useMatch('/shop/:categorySlug/products')
   const matchTieredProducts = useMatch('/:level1Slug/:categorySlug/products')
+  const matchDepartmentBrowse = useMatch('/:level1Slug/browse')
   const matchLegacyL2 = useMatch('/shop/categories/level-2/:categoryId/products')
   const matchLegacyL3 = useMatch('/shop/categories/level-3/:categoryId/products')
 
@@ -73,6 +74,12 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
       if (cat) {
         routeCategoryIdFromPath = cat.id
       }
+    } else if (matchDepartmentBrowse?.params.level1Slug && !pathname.startsWith('/shop')) {
+      const l1 = decodePathParam(matchDepartmentBrowse.params.level1Slug)
+      const l1Cat = categories.find((c) => c.level === 1 && c.slug.toLowerCase() === l1.toLowerCase())
+      if (l1Cat) {
+        routeCategoryIdFromPath = l1Cat.id
+      }
     }
   }
 
@@ -82,7 +89,11 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
       matchTieredProducts.params.categorySlug &&
       !pathname.startsWith('/shop'),
   )
-  const categoryIdFromSearchForHomeFilter = isTieredCategoryProductsRoute ? null : searchParams.get('categoryId')
+  const isDepartmentBrowseRoute = Boolean(
+    matchDepartmentBrowse?.params.level1Slug && !pathname.startsWith('/shop'),
+  )
+  const categoryIdFromSearchForHomeFilter =
+    isTieredCategoryProductsRoute || isDepartmentBrowseRoute ? null : searchParams.get('categoryId')
   const selectedCategoryId = categoryIdFromSearchForHomeFilter ?? routeCategoryIdFromPath ?? legacyRouteCategoryId
   const level1Categories = categories.filter((category) => category.level === 1)
   const level2Categories = categories.filter((category) => category.level === 2 && category.parentId === activeLevel1Id)

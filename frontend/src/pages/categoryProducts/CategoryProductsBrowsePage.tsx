@@ -8,7 +8,7 @@ import {
   getLevel1SlugForCategory,
   getPublicCategoryPathRootToLeaf,
 } from '../../components/navbar/categoryTree'
-import { categoryProductsPath, publicProductDetailPath } from './categoryProductRoutes'
+import { categoryProductsPath, departmentBrowsePath, publicProductDetailPath } from './categoryProductRoutes'
 
 type PublicProduct = {
   id: string
@@ -195,7 +195,8 @@ export function CategoryProductsBySlugPage() {
   const pageTitle = categoryMeta?.name ?? (decodedCategorySlug || 'Category')
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:py-8 lg:px-8">
+    <div className="mx-auto w-full max-w-[min(100%,120rem)] px-4 md:px-6 xl:px-8">
+      <div className="mx-auto w-full max-w-7xl py-6 md:py-8">
       <h1 className="sr-only">
         {searchKeyword ? `${pageTitle} — search: ${searchKeyword}` : pageTitle}
       </h1>
@@ -226,7 +227,10 @@ export function CategoryProductsBySlugPage() {
             const isLast = index === breadcrumbChain.length - 1
             const searchSuffix =
               searchKeyword.length > 0 ? `?${new URLSearchParams({ q: searchKeyword }).toString()}` : ''
-            const segmentHref = `${categoryProductsPath(decodedLevel1, cat.slug)}${searchSuffix}`
+            const segmentHref =
+              cat.level === 1
+                ? `${departmentBrowsePath(decodedLevel1)}${searchSuffix}`
+                : `${categoryProductsPath(decodedLevel1, cat.slug)}${searchSuffix}`
             return (
               <li key={cat.id} className="flex min-w-0 max-w-full items-center gap-1">
                 <FiChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
@@ -349,6 +353,7 @@ export function CategoryProductsBySlugPage() {
           })}
         </ul>
       ) : null}
+      </div>
     </div>
   )
 }

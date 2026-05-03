@@ -1,5 +1,9 @@
 import { Link } from 'react-router-dom'
-import { isTieredCategoryProductsPath } from '../../pages/categoryProducts/categoryProductRoutes'
+import {
+  departmentBrowsePath,
+  isDepartmentBrowsePath,
+  isTieredCategoryProductsPath,
+} from '../../pages/categoryProducts/categoryProductRoutes'
 import type { PublicCategory } from './types'
 import { getNavItemClassName } from './navItemClasses'
 
@@ -45,21 +49,23 @@ export function NavbarDesktopPrimaryNav({
           )}
           {!isCategoriesLoading &&
             level1Categories.map((category) => (
-              <button
+              <Link
                 key={category.id}
-                type="button"
+                to={departmentBrowsePath(category.slug)}
                 onMouseEnter={() => onCategoryHover(category.id)}
+                onFocus={() => onCategoryHover(category.id)}
                 className={`shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-base transition sm:px-2.5 ${
                   ((pathname === '/' ||
                     pathname.startsWith('/shop/') ||
-                    isTieredCategoryProductsPath(pathname)) &&
+                    isTieredCategoryProductsPath(pathname) ||
+                    isDepartmentBrowsePath(pathname)) &&
                     selectedLevel1CategoryId === category.id)
                     ? 'bg-sky-50 font-semibold text-sky-700'
                     : 'text-slate-700 hover:text-sky-700'
                 }`}
               >
                 {category.name}
-              </button>
+              </Link>
             ))}
           <Link to="/contact" className={getNavItemClassName(isContactActive)}>
             Contact

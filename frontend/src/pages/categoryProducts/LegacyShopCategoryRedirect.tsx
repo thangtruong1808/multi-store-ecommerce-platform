@@ -56,8 +56,10 @@ export function LegacyShopCategoryRedirect() {
 
   if (target === null) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <p className="text-sm text-slate-500">Updating to the new product link…</p>
+      <div className="mx-auto w-full max-w-[min(100%,120rem)] px-4 md:px-6 xl:px-8">
+        <div className="mx-auto w-full max-w-7xl py-6 md:py-8">
+          <p className="text-sm text-slate-500">Updating to the new product link…</p>
+        </div>
       </div>
     )
   }
