@@ -1,8 +1,14 @@
 import type { Dispatch, SetStateAction } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FiCheck, FiPackage, FiPlus, FiX } from 'react-icons/fi'
 
 import { DashboardSpinner } from './DashboardSpinner'
 import type { CategoryParentOption, ProductDetail, ProductFormState } from './dashboardTypes'
+import {
+  PRODUCT_FIELD_HINTS,
+  countValidationIssues,
+  validateProductFormFields,
+} from './products/productFormValidation'
 
 type DashboardProductFormModalProps = {
   closeProductForm: () => void
@@ -20,6 +26,12 @@ type DashboardProductFormModalProps = {
   onSaveProduct: () => void
 }
 
+function inputBorderClass(hasError: boolean) {
+  return hasError
+    ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100'
+    : 'border-slate-300 focus:border-sky-500 focus:ring-sky-100'
+}
+
 export function DashboardProductFormModal({
   closeProductForm,
   editingProduct,
@@ -35,6 +47,35 @@ export function DashboardProductFormModal({
   isProductSaving,
   onSaveProduct,
 }: DashboardProductFormModalProps) {
+  const [fieldTouched, setFieldTouched] = useState<Record<string, boolean>>({})
+  const [attemptedSave, setAttemptedSave] = useState(false)
+
+  useEffect(() => {
+    setFieldTouched({})
+    setAttemptedSave(false)
+  }, [editingProduct?.id])
+
+  const validationErrors = useMemo(() => validateProductFormFields(productForm), [productForm])
+
+  const descriptionLines = useMemo(() => {
+    return productForm.description
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+  }, [productForm.description])
+
+  const showFieldError = (key: string) =>
+    Boolean(validationErrors[key]) && (Boolean(fieldTouched[key]) || attemptedSave)
+
+  const handlePrimarySave = () => {
+    const errs = validateProductFormFields(productForm)
+    if (countValidationIssues(errs) > 0) {
+      setAttemptedSave(true)
+      return
+    }
+    onSaveProduct()
+  }
+
   return (
     <>
       <button
@@ -44,17 +85,31 @@ export function DashboardProductFormModal({
         className="fixed inset-0 z-40 bg-slate-900/40"
       />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
-        <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
+        <div
+          className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6"
+          aria-busy={isProductSaving}
+        >
           <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-start gap-3">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sky-700">
-                <FiPackage className="h-4.5 w-4.5" aria-hidden="true" />
+                {isProductSaving ? (
+                  <DashboardSpinner className="h-4 w-4 border-sky-300 border-t-sky-700" />
+                ) : (
+                  <FiPackage className="h-4.5 w-4.5" aria-hidden="true" />
+                )}
               </span>
               <div>
                 <h2 className="text-base font-semibold text-slate-800">
                   {editingProduct ? 'Edit product' : 'Create product'}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">Manage product info, hierarchy category, images and videos.</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {isProductSaving ? 'Submitting to server…' : 'Manage product info, hierarchy category, images and videos.'}
+                </p>
+                {isProductSaving ? (
+                  <span className="sr-only" role="status" aria-live="polite">
+                    Submitting product to server
+                  </span>
+                ) : null}
               </div>
             </div>
             <button
@@ -68,46 +123,138 @@ export function DashboardProductFormModal({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              SKU
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="product-form-sku">
+                SKU
+              </label>
+              <p className="text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.sku}</p>
               <input
+                id="product-form-sku"
                 value={productForm.sku}
                 onChange={(event) => setProductForm((prev) => ({ ...prev, sku: event.target.value }))}
-                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
-                placeholder="SKU code"
+                onBlur={() => setFieldTouched((prev) => ({ ...prev, sku: true }))}
+                aria-invalid={showFieldError('sku')}
+                aria-describedby={showFieldError('sku') ? 'product-form-sku-error' : undefined}
+                className={`mt-1.5 w-full rounded-lg border px-3 py-2 text-sm text-slate-800 outline-none transition focus:ring ${inputBorderClass(showFieldError('sku'))}`}
+                placeholder="e.g. ACME-WIDGET-01"
               />
-            </label>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Name
+              {showFieldError('sku') ? (
+                <p id="product-form-sku-error" className="text-xs text-rose-600" role="alert">
+                  {validationErrors.sku}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="product-form-name">
+                Name
+              </label>
+              <p className="text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.name}</p>
               <input
+                id="product-form-name"
                 value={productForm.name}
                 onChange={(event) => setProductForm((prev) => ({ ...prev, name: event.target.value }))}
-                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
-                placeholder="Product name"
+                onBlur={() => setFieldTouched((prev) => ({ ...prev, name: true }))}
+                aria-invalid={showFieldError('name')}
+                aria-describedby={showFieldError('name') ? 'product-form-name-error' : undefined}
+                className={`mt-1.5 w-full rounded-lg border px-3 py-2 text-sm text-slate-800 outline-none transition focus:ring ${inputBorderClass(showFieldError('name'))}`}
+                placeholder="Product display name"
               />
-            </label>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 sm:col-span-2">
-              Description
+              {showFieldError('name') ? (
+                <p id="product-form-name-error" className="text-xs text-rose-600" role="alert">
+                  {validationErrors.name}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <label
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                htmlFor="product-form-description"
+              >
+                Description
+              </label>
+              <p className="text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.description}</p>
               <textarea
+                id="product-form-description"
                 value={productForm.description}
                 onChange={(event) => setProductForm((prev) => ({ ...prev, description: event.target.value }))}
-                className="mt-1.5 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
-                placeholder="Short description"
+                onBlur={() => setFieldTouched((prev) => ({ ...prev, description: true }))}
+                rows={12}
+                aria-invalid={showFieldError('description')}
+                aria-describedby={
+                  showFieldError('description')
+                    ? 'product-form-description-error'
+                    : descriptionLines.length > 0
+                      ? 'product-form-description-preview'
+                      : undefined
+                }
+                className={`mt-1.5 min-h-[14rem] w-full resize-y rounded-lg border px-3 py-2 text-sm leading-relaxed text-slate-800 outline-none transition focus:ring sm:min-h-[16rem] ${inputBorderClass(showFieldError('description'))}`}
+                placeholder={'One detail per line, for example:\nOrganic cotton\nMachine wash cold\nImported'}
               />
-            </label>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Base price
+              {showFieldError('description') ? (
+                <p id="product-form-description-error" className="text-xs text-rose-600" role="alert">
+                  {validationErrors.description}
+                </p>
+              ) : null}
+
+              {descriptionLines.length > 0 ? (
+                <div
+                  id="product-form-description-preview"
+                  className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:p-4"
+                  aria-live="polite"
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Customer-facing preview</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Each non-empty line below can be shown as its own point where the product is displayed.
+                  </p>
+                  <ul className="mt-3 list-none space-y-2 text-sm text-slate-800">
+                    {descriptionLines.map((line, idx) => (
+                      <li key={`desc-line-${idx}`} className="flex gap-2 rounded-md bg-white/80 px-2 py-1.5 shadow-sm ring-1 ring-slate-100">
+                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-100 text-[10px] font-semibold text-sky-800">
+                          {idx + 1}
+                        </span>
+                        <span className="min-w-0 flex-1">{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                htmlFor="product-form-base-price"
+              >
+                Base price
+              </label>
+              <p className="text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.basePrice}</p>
               <input
+                id="product-form-base-price"
                 value={productForm.basePrice}
                 onChange={(event) => setProductForm((prev) => ({ ...prev, basePrice: event.target.value }))}
-                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
+                onBlur={() => setFieldTouched((prev) => ({ ...prev, basePrice: true }))}
+                aria-invalid={showFieldError('basePrice')}
+                aria-describedby={showFieldError('basePrice') ? 'product-form-base-price-error' : undefined}
+                className={`mt-1.5 w-full rounded-lg border px-3 py-2 text-sm text-slate-800 outline-none transition focus:ring ${inputBorderClass(showFieldError('basePrice'))}`}
                 placeholder="0.00"
                 inputMode="decimal"
               />
-            </label>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Status
+              {showFieldError('basePrice') ? (
+                <p id="product-form-base-price-error" className="text-xs text-rose-600" role="alert">
+                  {validationErrors.basePrice}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="product-form-status">
+                Status
+              </label>
+              <p className="text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.status}</p>
               <select
+                id="product-form-status"
                 value={productForm.status}
                 onChange={(event) =>
                   setProductForm((prev) => ({
@@ -121,10 +268,13 @@ export function DashboardProductFormModal({
                 <option value="inactive">inactive</option>
                 <option value="draft">draft</option>
               </select>
-            </label>
+            </div>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+            <div
+              className={`rounded-lg border bg-slate-50 p-3 sm:col-span-2 ${showFieldError('category') ? 'border-rose-300' : 'border-slate-200'}`}
+            >
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category hierarchy</p>
+              <p className="mt-1 text-xs leading-snug text-slate-600">{PRODUCT_FIELD_HINTS.category}</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 <select
                   value={productForm.level1Id}
@@ -136,7 +286,9 @@ export function DashboardProductFormModal({
                       level3Id: 'none',
                     }))
                   }
-                  className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-800 outline-none focus:ring focus:ring-sky-100"
+                  onBlur={() => setFieldTouched((prev) => ({ ...prev, category: true }))}
+                  aria-invalid={showFieldError('category')}
+                  className={`rounded-md border px-2 py-2 text-sm text-slate-800 outline-none focus:ring ${inputBorderClass(showFieldError('category'))}`}
                 >
                   <option value="none">Level 1</option>
                   {level1Options.map((item) => (
@@ -150,7 +302,9 @@ export function DashboardProductFormModal({
                   onChange={(event) =>
                     setProductForm((prev) => ({ ...prev, level2Id: event.target.value, level3Id: 'none' }))
                   }
-                  className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-800 outline-none focus:ring focus:ring-sky-100"
+                  onBlur={() => setFieldTouched((prev) => ({ ...prev, category: true }))}
+                  aria-invalid={showFieldError('category')}
+                  className={`rounded-md border px-2 py-2 text-sm text-slate-800 outline-none focus:ring ${inputBorderClass(showFieldError('category'))}`}
                   disabled={productForm.level1Id === 'none'}
                 >
                   <option value="none">Level 2</option>
@@ -163,7 +317,9 @@ export function DashboardProductFormModal({
                 <select
                   value={productForm.level3Id}
                   onChange={(event) => setProductForm((prev) => ({ ...prev, level3Id: event.target.value }))}
-                  className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-800 outline-none focus:ring focus:ring-sky-100"
+                  onBlur={() => setFieldTouched((prev) => ({ ...prev, category: true }))}
+                  aria-invalid={showFieldError('category')}
+                  className={`rounded-md border px-2 py-2 text-sm text-slate-800 outline-none focus:ring ${inputBorderClass(showFieldError('category'))}`}
                   disabled={productForm.level2Id === 'none'}
                 >
                   <option value="none">Level 3</option>
@@ -174,6 +330,11 @@ export function DashboardProductFormModal({
                   ))}
                 </select>
               </div>
+              {showFieldError('category') ? (
+                <p className="mt-2 text-xs text-rose-600" role="alert">
+                  {validationErrors.category}
+                </p>
+              ) : null}
               {isProductCategoriesLoading && (
                 <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500">
                   <DashboardSpinner className="h-3.5 w-3.5" />
@@ -183,25 +344,34 @@ export function DashboardProductFormModal({
             </div>
 
             <div className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product images (optional, S3 keys)</p>
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product images (optional, S3 keys)</p>
+                  <p className="mt-1 max-w-prose text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.images}</p>
+                </div>
                 <button
                   type="button"
                   onClick={() =>
                     setProductForm((prev) => ({ ...prev, imageS3Keys: [...prev.imageS3Keys, ''].slice(0, 4) }))
                   }
-                  className="inline-flex items-center gap-1 text-xs font-medium text-sky-700"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-sky-700"
                 >
                   <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
                   Add image
                 </button>
               </div>
+              {showFieldError('images') ? (
+                <p className="mb-2 text-xs text-rose-600" role="alert">
+                  {validationErrors.images}
+                </p>
+              ) : null}
               <div className="space-y-2">
                 {productForm.imageS3Keys.map((value, index) => (
                   <div key={`image-${index}`} className="flex items-center gap-2">
                     <input
                       value={value}
                       onChange={(event) => handleProductImageChange(index, event.target.value)}
+                      onBlur={() => setFieldTouched((prev) => ({ ...prev, images: true }))}
                       className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
                       placeholder={`Image key #${index + 1}`}
                     />
@@ -227,67 +397,94 @@ export function DashboardProductFormModal({
             </div>
 
             <div className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product videos (optional, URLs)</p>
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product videos (optional, URLs)</p>
+                  <p className="mt-1 max-w-prose text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.videos}</p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setProductForm((prev) => ({ ...prev, videoUrls: [...prev.videoUrls, ''] }))}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-sky-700"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-sky-700"
                 >
                   <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
                   Add video
                 </button>
               </div>
               <div className="space-y-2">
-                {productForm.videoUrls.map((value, index) => (
-                  <div key={`video-${index}`} className="flex items-center gap-2">
-                    <input
-                      value={value}
-                      onChange={(event) => handleProductVideoChange(index, event.target.value)}
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
-                      placeholder={`https://... video URL #${index + 1}`}
-                    />
-                    {productForm.videoUrls.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setProductForm((prev) => ({
-                            ...prev,
-                            videoUrls: prev.videoUrls.filter((_, idx) => idx !== index),
-                          }))
-                        }
-                        className="rounded-md border border-slate-300 p-2 text-slate-600 transition hover:bg-slate-50"
-                        aria-label="Remove video row"
-                      >
-                        <FiX className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {productForm.videoUrls.map((value, index) => {
+                  const vk = `video-${index}`
+                  const vidErr = showFieldError(vk)
+                  return (
+                    <div key={`video-${index}`}>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={value}
+                          onChange={(event) => handleProductVideoChange(index, event.target.value)}
+                          onBlur={() => setFieldTouched((prev) => ({ ...prev, [vk]: true }))}
+                          aria-invalid={vidErr}
+                          aria-describedby={vidErr ? `video-err-${index}` : undefined}
+                          className={`w-full rounded-md border px-3 py-2 text-sm outline-none transition focus:ring ${inputBorderClass(vidErr)}`}
+                          placeholder={`https://... video URL #${index + 1}`}
+                        />
+                        {productForm.videoUrls.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setProductForm((prev) => ({
+                                ...prev,
+                                videoUrls: prev.videoUrls.filter((_, idx) => idx !== index),
+                              }))
+                            }
+                            className="rounded-md border border-slate-300 p-2 text-slate-600 transition hover:bg-slate-50"
+                            aria-label="Remove video row"
+                          >
+                            <FiX className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                      {vidErr ? (
+                        <p id={`video-err-${index}`} className="mt-1 text-xs text-rose-600" role="alert">
+                          {validationErrors[vk]}
+                        </p>
+                      ) : null}
+                    </div>
+                  )
+                })}
                 {productForm.videoUrls.length === 0 && <p className="text-xs text-slate-500">No videos added.</p>}
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              onClick={closeProductForm}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50"
-            >
-              <FiX className="h-4 w-4" aria-hidden="true" />
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={onSaveProduct}
-              disabled={isProductSaving || !hasProductChanges}
-              className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isProductSaving && <DashboardSpinner className="h-3.5 w-3.5 border-white/40 border-t-white" />}
-              {!isProductSaving && <FiCheck className="h-4 w-4" aria-hidden="true" />}
-              {isProductSaving ? 'Saving...' : editingProduct ? 'Save changes' : 'Create product'}
-            </button>
+          <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            {attemptedSave && countValidationIssues(validationErrors) > 0 ? (
+              <p className="text-sm text-rose-600 sm:mr-auto" role="status">
+                Fix the highlighted fields before saving.
+              </p>
+            ) : (
+              <span className="hidden sm:block" aria-hidden="true" />
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeProductForm}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50"
+              >
+                <FiX className="h-4 w-4" aria-hidden="true" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePrimarySave}
+                disabled={isProductSaving || !hasProductChanges}
+                aria-busy={isProductSaving}
+                className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isProductSaving && <DashboardSpinner className="h-3.5 w-3.5 border-white/40 border-t-white" />}
+                {!isProductSaving && <FiCheck className="h-4 w-4" aria-hidden="true" />}
+                {isProductSaving ? 'Saving…' : editingProduct ? 'Save changes' : 'Create product'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -4,6 +4,31 @@ import { API_BASE_URL } from '../../../features/auth/authConstants'
 import { fetchWithAutoRefresh } from '../fetchDashboardApi'
 import type { CategoryParentOption, ProductDetail, ProductFormState, ProductsResponse } from '../dashboardTypes'
 
+function formatProductSaveError(payload: unknown, status: number): string {
+  if (payload && typeof payload === 'object') {
+    const p = payload as { message?: unknown; errors?: Record<string, string> }
+    const parts: string[] = []
+    if (typeof p.message === 'string' && p.message.trim().length > 0) {
+      parts.push(p.message.trim())
+    }
+    if (p.errors && typeof p.errors === 'object') {
+      const fieldErrors = Object.entries(p.errors)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(' ')
+      if (fieldErrors.length > 0) {
+        parts.push(fieldErrors)
+      }
+    }
+    if (parts.length > 0) {
+      return parts.join(' — ')
+    }
+  }
+  if (status === 401) {
+    return 'Your session has expired. Please sign in again.'
+  }
+  return `Unable to save product (${status})`
+}
+
 type UpsertOpts = {
   editingProduct: ProductDetail | null
   productForm: ProductFormState
@@ -31,6 +56,10 @@ export async function executeProductUpsert(opts: UpsertOpts): Promise<void> {
     resetProductForm,
   } = opts
 
+  if (productForm.level3Id === 'none') {
+    throw new Error('categoryId: Choose a level 3 category before saving.')
+  }
+
   const payload = {
     sku: productForm.sku.trim(),
     name: productForm.name.trim(),
@@ -51,8 +80,8 @@ export async function executeProductUpsert(opts: UpsertOpts): Promise<void> {
     },
   )
   if (!response.ok) {
-    const errorPayload = (await response.json().catch(() => null)) as { message?: string } | null
-    throw new Error(errorPayload?.message ?? `Unable to save product (${response.status})`)
+    const errorPayload = await response.json().catch(() => null)
+    throw new Error(formatProductSaveError(errorPayload, response.status))
   }
 
   const saved = (await response.json()) as ProductDetail

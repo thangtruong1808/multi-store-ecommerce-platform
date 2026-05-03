@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppDispatch } from '../app/hooks'
 import { logoutUser } from '../features/auth/authSlice'
 import { NavbarDesktopPrimaryNav } from './navbar/NavbarDesktopPrimaryNav'
@@ -8,7 +8,16 @@ import { NavbarMegaMenu } from './navbar/NavbarMegaMenu'
 import { NavbarMobileBar } from './navbar/NavbarMobileBar'
 import { NavbarMobileNavPanel } from './navbar/NavbarMobileNavPanel'
 import { NavbarSearchControl } from './navbar/NavbarSearchControl'
+import { findPublicCategoryBySlugUnderLevel1 } from './navbar/categoryTree'
 import type { PublicCategory } from './navbar/types'
+
+function decodePathParam(segment: string) {
+  try {
+    return decodeURIComponent(segment).trim()
+  } catch {
+    return segment.trim()
+  }
+}
 
 type NavbarProps = {
   isAuthenticated: boolean
@@ -38,7 +47,43 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5080'
-  const selectedCategoryId = searchParams.get('categoryId')
+  const pathname = location.pathname
+  const matchShopSlugProducts = useMatch('/shop/:categorySlug/products')
+  const matchTieredProducts = useMatch('/:level1Slug/:categorySlug/products')
+  const matchLegacyL2 = useMatch('/shop/categories/level-2/:categoryId/products')
+  const matchLegacyL3 = useMatch('/shop/categories/level-3/:categoryId/products')
+
+  let routeCategoryIdFromPath: string | null = null
+  if (categories.length > 0) {
+    if (
+      matchShopSlugProducts?.params.categorySlug &&
+      pathname.startsWith('/shop/') &&
+      !pathname.includes('/categories/')
+    ) {
+      const cs = decodePathParam(matchShopSlugProducts.params.categorySlug)
+      routeCategoryIdFromPath = categories.find((c) => c.slug.toLowerCase() === cs.toLowerCase())?.id ?? null
+    } else if (
+      matchTieredProducts?.params.level1Slug &&
+      matchTieredProducts.params.categorySlug &&
+      !pathname.startsWith('/shop')
+    ) {
+      const l1 = decodePathParam(matchTieredProducts.params.level1Slug)
+      const cs = decodePathParam(matchTieredProducts.params.categorySlug)
+      const cat = findPublicCategoryBySlugUnderLevel1(categories, cs, l1)
+      if (cat) {
+        routeCategoryIdFromPath = cat.id
+      }
+    }
+  }
+
+  const legacyRouteCategoryId = matchLegacyL2?.params.categoryId ?? matchLegacyL3?.params.categoryId ?? null
+  const isTieredCategoryProductsRoute = Boolean(
+    matchTieredProducts?.params.level1Slug &&
+      matchTieredProducts.params.categorySlug &&
+      !pathname.startsWith('/shop'),
+  )
+  const categoryIdFromSearchForHomeFilter = isTieredCategoryProductsRoute ? null : searchParams.get('categoryId')
+  const selectedCategoryId = categoryIdFromSearchForHomeFilter ?? routeCategoryIdFromPath ?? legacyRouteCategoryId
   const level1Categories = categories.filter((category) => category.level === 1)
   const level2Categories = categories.filter((category) => category.level === 2 && category.parentId === activeLevel1Id)
   const level3Categories = categories.filter((category) => category.level === 3 && category.parentId === activeLevel2Id)
@@ -121,8 +166,18 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
   }, [])
 
   useEffect(() => {
-    setActiveLevel2Id(null)
-  }, [activeLevel1Id])
+    if (!activeLevel1Id) {
+      setActiveLevel2Id(null)
+      return
+    }
+    const l2List = categories.filter((category) => category.level === 2 && category.parentId === activeLevel1Id)
+    if (l2List.length === 0) {
+      setActiveLevel2Id(null)
+      return
+    }
+    const firstWithL3 = l2List.find((l2) => categories.some((item) => item.level === 3 && item.parentId === l2.id))
+    setActiveLevel2Id(firstWithL3?.id ?? l2List[0].id)
+  }, [activeLevel1Id, categories])
 
   useEffect(() => {
     setSearchInput(searchParams.get('q') ?? '')
@@ -219,7 +274,6 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
             pathname={location.pathname}
             onCategoryHover={(categoryId) => {
               setActiveLevel1Id(categoryId)
-              setActiveLevel2Id(null)
               setIsMegaOpen(true)
             }}
           />
@@ -255,6 +309,7 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
       {!isCategoriesLoading && level1Categories.length > 0 && (
         <NavbarMegaMenu
           categories={categories}
+          level1Slug={categories.find((c) => c.id === activeLevel1Id && c.level === 1)?.slug ?? ''}
           level2Categories={level2Categories}
           level3Categories={level3Categories}
           activeLevel2Id={activeLevel2Id}

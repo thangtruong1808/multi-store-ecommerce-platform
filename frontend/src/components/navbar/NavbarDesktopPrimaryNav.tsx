@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { isTieredCategoryProductsPath } from '../../pages/categoryProducts/categoryProductRoutes'
 import type { PublicCategory } from './types'
 import { getNavItemClassName } from './navItemClasses'
 
@@ -49,7 +50,10 @@ export function NavbarDesktopPrimaryNav({
                 type="button"
                 onMouseEnter={() => onCategoryHover(category.id)}
                 className={`shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-base transition sm:px-2.5 ${
-                  pathname === '/' && selectedLevel1CategoryId === category.id
+                  ((pathname === '/' ||
+                    pathname.startsWith('/shop/') ||
+                    isTieredCategoryProductsPath(pathname)) &&
+                    selectedLevel1CategoryId === category.id)
                     ? 'bg-sky-50 font-semibold text-sky-700'
                     : 'text-slate-700 hover:text-sky-700'
                 }`}

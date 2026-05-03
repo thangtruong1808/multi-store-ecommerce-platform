@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { FiChevronRight } from 'react-icons/fi'
+import { categoryProductsPath, isTieredCategoryProductsPath } from '../../pages/categoryProducts/categoryProductRoutes'
 import type { PublicCategory } from './types'
 import { getLevel2ByParent, getLevel3ByParent } from './categoryTree'
 
@@ -83,12 +84,24 @@ export function NavbarMobileNavPanel({
             return (
               <div key={category.id} className="flex flex-col">
                 <div
-                  className={`${mobileNavRowClass} ${pathname === '/' && selectedLevel1CategoryId === category.id ? 'bg-sky-50' : ''} text-slate-700`}
+                  className={`${mobileNavRowClass} ${
+                    ((pathname === '/' ||
+                      pathname.startsWith('/shop/') ||
+                      isTieredCategoryProductsPath(pathname)) &&
+                      selectedLevel1CategoryId === category.id)
+                      ? 'bg-sky-50'
+                      : ''
+                  } text-slate-700`}
                 >
                   <Link
                     to={`/?categoryId=${encodeURIComponent(category.id)}`}
                     className={`min-w-0 flex-1 truncate py-0.5 ${
-                      pathname === '/' && selectedLevel1CategoryId === category.id ? 'font-semibold text-sky-700' : 'text-slate-700 hover:text-sky-700'
+                      ((pathname === '/' ||
+                        pathname.startsWith('/shop/') ||
+                        isTieredCategoryProductsPath(pathname)) &&
+                        selectedLevel1CategoryId === category.id)
+                        ? 'font-semibold text-sky-700'
+                        : 'text-slate-700 hover:text-sky-700'
                     }`}
                     onClick={onCloseMobileNav}
                   >
@@ -123,7 +136,7 @@ export function NavbarMobileNavPanel({
                         <div key={l2.id} className="flex flex-col">
                           <div className={`${mobileNavRowClass} pl-1 text-slate-700`}>
                             <Link
-                              to={`/?categoryId=${encodeURIComponent(l2.id)}`}
+                              to={categoryProductsPath(category.slug, l2.slug)}
                               className="min-w-0 flex-1 truncate py-0.5 hover:text-sky-700"
                               onClick={onCloseMobileNav}
                             >
@@ -152,7 +165,7 @@ export function NavbarMobileNavPanel({
                               {l3Children.map((l3) => (
                                 <Link
                                   key={l3.id}
-                                  to={`/?categoryId=${encodeURIComponent(l3.id)}`}
+                                  to={categoryProductsPath(category.slug, l3.slug)}
                                   className="min-h-9 rounded-md px-1 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-sky-700"
                                   onClick={onCloseMobileNav}
                                 >
