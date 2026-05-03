@@ -12,6 +12,8 @@ import type {
   DashboardFeatureKey,
   ProductItem,
   ProductsResponse,
+  StoreItem,
+  StoresResponse,
   UserItem,
   UsersResponse,
 } from './dashboardTypes'
@@ -26,11 +28,13 @@ type DashboardDataTableProps = {
   totalItems: number
   totalPages: number
   isUsersLoading: boolean
+  isStoresLoading: boolean
   isCategoriesLoading: boolean
   isProductsLoading: boolean
   isActivityLogsLoading: boolean
   isFeatureLoading: boolean
   usersState: UsersResponse
+  storesState: StoresResponse
   categoriesState: CategoriesResponse
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
@@ -47,6 +51,11 @@ type DashboardDataTableProps = {
   setConfirmDeleteProduct: (product: ProductItem | null) => void
   isProductDeleting: boolean
   deletingProductId: string | null
+  openEditStoreForm: (store: StoreItem) => void
+  setConfirmDeleteStore: (store: StoreItem | null) => void
+  isStoreDeleting: boolean
+  deletingStoreId: string | null
+  canMutateStores: boolean
 }
 
 export function DashboardDataTable({
@@ -59,11 +68,13 @@ export function DashboardDataTable({
   totalItems,
   totalPages,
   isUsersLoading,
+  isStoresLoading,
   isCategoriesLoading,
   isProductsLoading,
   isActivityLogsLoading,
   isFeatureLoading,
   usersState,
+  storesState,
   categoriesState,
   productsState,
   activityLogsState,
@@ -80,6 +91,11 @@ export function DashboardDataTable({
   setConfirmDeleteProduct,
   isProductDeleting,
   deletingProductId,
+  openEditStoreForm,
+  setConfirmDeleteStore,
+  isStoreDeleting,
+  deletingStoreId,
+  canMutateStores,
 }: DashboardDataTableProps) {
   const safePage = Math.min(page, totalPages)
 
@@ -99,11 +115,13 @@ export function DashboardDataTable({
             activeFeature={activeFeature}
             currentItems={currentItems}
             isUsersLoading={isUsersLoading}
+            isStoresLoading={isStoresLoading}
             isCategoriesLoading={isCategoriesLoading}
             isProductsLoading={isProductsLoading}
             isActivityLogsLoading={isActivityLogsLoading}
             isFeatureLoading={isFeatureLoading}
             usersState={usersState}
+            storesState={storesState}
             categoriesState={categoriesState}
             productsState={productsState}
             activityLogsState={activityLogsState}
@@ -120,6 +138,11 @@ export function DashboardDataTable({
             setConfirmDeleteProduct={setConfirmDeleteProduct}
             isProductDeleting={isProductDeleting}
             deletingProductId={deletingProductId}
+            openEditStoreForm={openEditStoreForm}
+            setConfirmDeleteStore={setConfirmDeleteStore}
+            isStoreDeleting={isStoreDeleting}
+            deletingStoreId={deletingStoreId}
+            canMutateStores={canMutateStores}
           />
         </table>
       </div>

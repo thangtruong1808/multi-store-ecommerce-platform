@@ -99,6 +99,8 @@ export type ProductItem = {
 export type ProductDetail = ProductItem & {
   imageS3Keys: string[]
   videoUrls: string[]
+  /** Present when loaded from product detail API */
+  storeIds?: string[]
 }
 
 export type ProductsResponse = {
@@ -122,6 +124,8 @@ export type ProductFormState = {
   level3Id: 'none' | string
   imageS3Keys: string[]
   videoUrls: string[]
+  /** Dashboard product scope; persisted via store_products */
+  storeIds: string[]
 }
 
 export type BasicRow = {
@@ -131,6 +135,45 @@ export type BasicRow = {
   status: string
 }
 
+export type StoreItem = {
+  id: string
+  name: string
+  slug: string
+  email?: string | null
+  phone?: string | null
+  defaultCurrencyCode: string
+  timezone: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type StoresResponse = {
+  items: StoreItem[]
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
+export type StoreFormState = {
+  name: string
+  slug: string
+  email: string
+  phone: string
+  defaultCurrencyCode: string
+  timezone: string
+  isActive: boolean
+}
+
+/** Store rows from GET /api/stores/managed (product form picker). */
+export type ManagedStoreOption = {
+  id: string
+  name: string
+  slug: string
+  isActive: boolean
+}
+
 export type EditUserFormState = {
   firstName: string
   lastName: string
@@ -138,6 +181,8 @@ export type EditUserFormState = {
   mobile: string
   role: UserItem['role']
   isActive: boolean
+  /** Admin-only: store_staff targets when role is store_manager or staff */
+  managedStoreIds: string[]
 }
 
 export type CategoryFormState = {

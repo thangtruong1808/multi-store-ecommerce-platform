@@ -4,6 +4,8 @@ import { DashboardDataTable } from './DashboardDataTable'
 import { DashboardMessages } from './DashboardMessages'
 import { DashboardProductFilters } from './DashboardProductFilters'
 import { DashboardProductModals } from './DashboardProductModals'
+import { DashboardStoreFilters } from './DashboardStoreFilters'
+import { DashboardStoreModals } from './DashboardStoreModals'
 import { DashboardToolbar } from './DashboardToolbar'
 import { DashboardUserModals } from './DashboardUserModals'
 import type { DashboardModel } from './hooks/useDashboardModel'
@@ -17,6 +19,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
   const u = model.users
   const c = model.categories
   const p = model.products
+  const s = model.stores
 
   return (
     <section className="min-w-0 p-3 sm:p-4 lg:p-6">
@@ -42,6 +45,10 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
           hasEditChanges={model.hasEditChanges}
           isEditSaving={u.isEditSaving}
           onSaveUser={() => void u.handleSaveUser()}
+          isAdminSession={u.isAdminSession}
+          adminStoreOptions={u.adminStoreOptions}
+          isUserStoreDataLoading={u.isUserStoreDataLoading}
+          toggleUserManagedStore={u.toggleUserManagedStore}
           confirmDeleteUser={u.confirmDeleteUser}
           setConfirmDeleteUser={u.setConfirmDeleteUser}
           isDeleteLoading={u.isDeleteLoading}
@@ -68,6 +75,23 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         />
       )}
 
+      {activeFeature === 'stores' && (
+        <DashboardStoreModals
+          isStoreFormOpen={s.isStoreFormOpen}
+          closeStoreForm={s.closeStoreForm}
+          editingStore={s.editingStore}
+          storeForm={s.storeForm}
+          setStoreForm={s.setStoreForm}
+          hasStoreChanges={model.hasStoreChanges}
+          isStoreSaving={s.isStoreSaving}
+          onSaveStore={() => void s.handleSaveStore()}
+          confirmDeleteStore={s.confirmDeleteStore}
+          setConfirmDeleteStore={s.setConfirmDeleteStore}
+          isStoreDeleting={s.isStoreDeleting}
+          onDeleteStore={(store) => void s.handleDeleteStore(store)}
+        />
+      )}
+
       {activeFeature === 'products' && (
         <DashboardProductModals
           isProductFormOpen={p.isProductFormOpen}
@@ -88,6 +112,11 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
           setConfirmDeleteProduct={p.setConfirmDeleteProduct}
           isProductDeleting={p.isProductDeleting}
           onDeleteProduct={(product) => void p.handleDeleteProduct(product)}
+          managedStores={p.managedStores}
+          isManagedStoresLoading={p.isManagedStoresLoading}
+          isAdminUser={p.isAdminUser}
+          toggleProductStoreId={p.toggleProductStoreId}
+          onSelectAllStores={p.selectAllManagedStores}
         />
       )}
 
@@ -103,6 +132,16 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
           setCategorySearchInput={c.setCategorySearchInput}
           onApplyCategorySearch={() => c.setCategorySearchText(c.categorySearchInput)}
           onOpenCreateCategory={c.openCreateCategoryForm}
+        />
+      )}
+
+      {activeFeature === 'stores' && (
+        <DashboardStoreFilters
+          storeSearchInput={s.storeSearchInput}
+          setStoreSearchInput={s.setStoreSearchInput}
+          onApplyStoreSearch={() => s.setStoreSearchText(s.storeSearchInput)}
+          onOpenCreateStore={s.openCreateStoreForm}
+          canMutateStores={s.isAdmin}
         />
       )}
 
@@ -130,11 +169,13 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         totalItems={model.totalItems}
         totalPages={model.totalPages}
         isUsersLoading={u.isUsersLoading}
+        isStoresLoading={s.isStoresLoading}
         isCategoriesLoading={c.isCategoriesLoading}
         isProductsLoading={p.isProductsLoading}
         isActivityLogsLoading={u.isActivityLogsLoading}
         isFeatureLoading={model.isFeatureLoading}
         usersState={u.usersState}
+        storesState={s.storesState}
         categoriesState={c.categoriesState}
         productsState={p.productsState}
         activityLogsState={u.activityLogsState}
@@ -151,6 +192,11 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         setConfirmDeleteProduct={p.setConfirmDeleteProduct}
         isProductDeleting={p.isProductDeleting}
         deletingProductId={p.deletingProductId}
+        openEditStoreForm={s.openEditStoreForm}
+        setConfirmDeleteStore={s.setConfirmDeleteStore}
+        isStoreDeleting={s.isStoreDeleting}
+        deletingStoreId={s.deletingStoreId}
+        canMutateStores={s.isAdmin}
       />
     </section>
   )

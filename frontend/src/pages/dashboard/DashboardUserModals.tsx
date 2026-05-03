@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { FiAlertTriangle, FiCheck, FiTrash2, FiUsers, FiX } from 'react-icons/fi'
 
 import { DashboardSpinner } from './DashboardSpinner'
-import type { EditUserFormState, UserItem } from './dashboardTypes'
+import type { EditUserFormState, ManagedStoreOption, UserItem } from './dashboardTypes'
 
 type DashboardUserModalsProps = {
   editingUser: UserItem | null
@@ -12,6 +12,10 @@ type DashboardUserModalsProps = {
   hasEditChanges: boolean
   isEditSaving: boolean
   onSaveUser: () => void
+  isAdminSession: boolean
+  adminStoreOptions: ManagedStoreOption[]
+  isUserStoreDataLoading: boolean
+  toggleUserManagedStore: (storeId: string) => void
   confirmDeleteUser: UserItem | null
   setConfirmDeleteUser: (user: UserItem | null) => void
   isDeleteLoading: boolean
@@ -26,6 +30,10 @@ export function DashboardUserModals({
   hasEditChanges,
   isEditSaving,
   onSaveUser,
+  isAdminSession,
+  adminStoreOptions,
+  isUserStoreDataLoading,
+  toggleUserManagedStore,
   confirmDeleteUser,
   setConfirmDeleteUser,
   isDeleteLoading,
@@ -124,6 +132,43 @@ export function DashboardUserModals({
                   />
                   Active user
                 </label>
+
+                {isAdminSession && (editForm.role === 'store_manager' || editForm.role === 'staff') ? (
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/90 p-3 sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Assigned stores</p>
+                    <p className="text-xs text-slate-500">Links this user to stores via store_staff (dashboard product scope).</p>
+                    {isUserStoreDataLoading ? (
+                      <div className="inline-flex items-center gap-2 text-sm text-slate-600">
+                        <DashboardSpinner className="h-4 w-4" />
+                        Loading stores…
+                      </div>
+                    ) : (
+                      <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 bg-white p-2">
+                        {adminStoreOptions.length === 0 ? (
+                          <p className="text-sm text-slate-500">No stores exist yet. Create a store first.</p>
+                        ) : (
+                          adminStoreOptions.map((m) => (
+                            <label
+                              key={m.id}
+                              className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-slate-50"
+                            >
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600"
+                                checked={editForm.managedStoreIds.includes(m.id)}
+                                onChange={() => toggleUserManagedStore(m.id)}
+                              />
+                              <span>
+                                <span className="font-medium text-slate-800">{m.name}</span>
+                                <span className="ml-1 text-xs text-slate-500">{m.slug}</span>
+                              </span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-4">

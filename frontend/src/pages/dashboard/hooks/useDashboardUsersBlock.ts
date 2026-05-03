@@ -1,12 +1,15 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
+import { useAppSelector } from '../../../app/hooks'
 import { API_BASE_URL } from '../../../features/auth/authConstants'
 import { fetchWithAutoRefresh } from '../fetchDashboardApi'
 import type {
   ActivityLogsResponse,
   DashboardFeatureKey,
   EditUserFormState,
+  ManagedStoreOption,
+  StoreItem,
   UserItem,
   UsersResponse,
 } from '../dashboardTypes'
@@ -19,6 +22,8 @@ export function useDashboardUsersBlock(
   setInlineStatusType: Dispatch<SetStateAction<'success' | 'info' | 'error'>>,
   dashboardApiReady: boolean,
 ) {
+  const isAdminSession = useAppSelector((state) => state.auth.user?.role === 'admin')
+
   const [usersState, setUsersState] = useState<UsersResponse>({
     items: [],
     page: 1,
@@ -45,7 +50,11 @@ export function useDashboardUsersBlock(
     mobile: '',
     role: 'customer',
     isActive: true,
+    managedStoreIds: [],
   })
+  const [baselineManagedStoreIds, setBaselineManagedStoreIds] = useState<string[] | null>(null)
+  const [adminStoreOptions, setAdminStoreOptions] = useState<ManagedStoreOption[]>([])
+  const [isUserStoreDataLoading, setIsUserStoreDataLoading] = useState(false)
   const [isEditSaving, setIsEditSaving] = useState(false)
   const [isDeleteLoading, setIsDeleteLoading] = useState(false)
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
@@ -157,6 +166,68 @@ export function useDashboardUsersBlock(
     }
   }, [activeFeature, dashboardApiReady, page, pageSize])
 
+  useEffect(() => {
+    if (!editingUser || !dashboardApiReady || !isAdminSession) {
+      setBaselineManagedStoreIds(null)
+      setAdminStoreOptions([])
+      return
+    }
+
+    let alive = true
+    const load = async () => {
+      setIsUserStoreDataLoading(true)
+      try {
+        const [storesRes, idsRes] = await Promise.all([
+          fetchWithAutoRefresh(`${API_BASE_URL}/api/stores?page=1&pageSize=100`, {
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          }),
+          fetchWithAutoRefresh(`${API_BASE_URL}/api/auth/users/${editingUser.id}/managed-stores`, {
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        ])
+        if (!storesRes.ok || !idsRes.ok) throw new Error('Unable to load store assignment data.')
+        const storesPayload = (await storesRes.json()) as { items?: StoreItem[] }
+        const idsPayload = (await idsRes.json()) as { storeIds?: string[] }
+        if (!alive) return
+        const items = storesPayload.items ?? []
+        setAdminStoreOptions(
+          items.map((s) => ({
+            id: s.id,
+            name: s.name,
+            slug: s.slug,
+            isActive: s.isActive,
+          })),
+        )
+        const ids = (idsPayload.storeIds ?? []).map(String)
+        setBaselineManagedStoreIds(ids)
+        setEditForm((prev) => ({ ...prev, managedStoreIds: ids }))
+      } catch {
+        if (alive) {
+          setBaselineManagedStoreIds([])
+          setAdminStoreOptions([])
+        }
+      } finally {
+        if (alive) setIsUserStoreDataLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      alive = false
+    }
+  }, [editingUser, dashboardApiReady, isAdminSession])
+
+  const toggleUserManagedStore = (storeId: string) => {
+    setEditForm((prev) => {
+      const next = new Set(prev.managedStoreIds)
+      if (next.has(storeId)) next.delete(storeId)
+      else next.add(storeId)
+      return { ...prev, managedStoreIds: [...next] }
+    })
+  }
+
   const openEditForm = (openedUser: UserItem) => {
     setEditingUser(openedUser)
     setEditForm({
@@ -166,36 +237,49 @@ export function useDashboardUsersBlock(
       mobile: openedUser.mobile ?? '',
       role: openedUser.role,
       isActive: openedUser.isActive,
+      managedStoreIds: [],
     })
+    setBaselineManagedStoreIds(null)
     setInlineStatusMessage(null)
   }
 
   const handleSaveUser = async () => {
     if (!editingUser) return
+    const sorted = (a: string[]) => [...a].sort().join(',')
+    const storesChanged =
+      isAdminSession &&
+      baselineManagedStoreIds !== null &&
+      sorted(editForm.managedStoreIds) !== sorted(baselineManagedStoreIds)
     const hasChanges =
       editForm.firstName.trim() !== editingUser.firstName ||
       editForm.lastName.trim() !== editingUser.lastName ||
       editForm.email.trim().toLowerCase() !== editingUser.email.toLowerCase() ||
       editForm.mobile.trim() !== (editingUser.mobile ?? '') ||
       editForm.role !== editingUser.role ||
-      editForm.isActive !== editingUser.isActive
+      editForm.isActive !== editingUser.isActive ||
+      storesChanged
     if (!hasChanges) return
 
     setIsEditSaving(true)
     setInlineStatusMessage(null)
     try {
+      const body: Record<string, unknown> = {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        email: editForm.email,
+        mobile: editForm.mobile,
+        role: editForm.role,
+        isActive: editForm.isActive,
+      }
+      if (isAdminSession) {
+        body.managedStoreIds = editForm.managedStoreIds
+      }
+
       const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/auth/users/${editingUser.id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: editForm.firstName,
-          lastName: editForm.lastName,
-          email: editForm.email,
-          mobile: editForm.mobile,
-          role: editForm.role,
-          isActive: editForm.isActive,
-        }),
+        body: JSON.stringify(body),
       })
       if (!response.ok) {
         throw new Error(`Unable to update user (${response.status})`)
@@ -263,6 +347,11 @@ export function useDashboardUsersBlock(
     setEditingUser,
     editForm,
     setEditForm,
+    baselineManagedStoreIds,
+    adminStoreOptions,
+    isUserStoreDataLoading,
+    isAdminSession,
+    toggleUserManagedStore,
     isEditSaving,
     isDeleteLoading,
     deletingUserId,

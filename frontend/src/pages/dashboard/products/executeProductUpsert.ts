@@ -71,6 +71,7 @@ export async function executeProductUpsert(opts: UpsertOpts): Promise<void> {
     isRefurbished: productForm.isRefurbished,
     imageS3Keys: productForm.imageS3Keys.map((item) => item.trim()).filter((item) => item.length > 0),
     videoUrls: productForm.videoUrls.map((item) => item.trim()).filter((item) => item.length > 0),
+    storeIds: productForm.storeIds,
   }
   const response = await fetchWithAutoRefresh(
     editingProduct ? `${API_BASE_URL}/api/products/${editingProduct.id}` : `${API_BASE_URL}/api/products`,

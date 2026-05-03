@@ -4,18 +4,31 @@ import type {
   EditUserFormState,
   ProductDetail,
   ProductFormState,
+  StoreFormState,
+  StoreItem,
   UserItem,
 } from './dashboardTypes'
 
-export function computeHasEditChanges(editingUser: UserItem | null, editForm: EditUserFormState) {
+function sortedIdList(ids: string[]) {
+  return [...ids].sort().join(',')
+}
+
+export function computeHasEditChanges(
+  editingUser: UserItem | null,
+  editForm: EditUserFormState,
+  initialManagedStoreIds: string[] | null,
+) {
   if (!editingUser) return false
+  const storesChanged =
+    initialManagedStoreIds !== null && sortedIdList(editForm.managedStoreIds) !== sortedIdList(initialManagedStoreIds)
   return (
     editForm.firstName.trim() !== editingUser.firstName ||
     editForm.lastName.trim() !== editingUser.lastName ||
     editForm.email.trim().toLowerCase() !== editingUser.email.toLowerCase() ||
     editForm.mobile.trim() !== (editingUser.mobile ?? '') ||
     editForm.role !== editingUser.role ||
-    editForm.isActive !== editingUser.isActive
+    editForm.isActive !== editingUser.isActive ||
+    storesChanged
   )
 }
 
@@ -31,15 +44,22 @@ export function computeHasCategoryChanges(editingCategory: CategoryItem | null, 
   )
 }
 
+function sortedIds(ids: string[]) {
+  return [...ids].sort().join(',')
+}
+
 export function computeHasProductChanges(editingProduct: ProductDetail | null, productForm: ProductFormState) {
   if (editingProduct === null) {
     return (
       productForm.sku.trim().length > 0 &&
       productForm.name.trim().length > 0 &&
       productForm.basePrice.trim().length > 0 &&
-      productForm.level3Id !== 'none'
+      productForm.level3Id !== 'none' &&
+      productForm.storeIds.length > 0
     )
   }
+  const prevStores = sortedIds(editingProduct.storeIds ?? [])
+  const nextStores = sortedIds(productForm.storeIds)
   return (
     productForm.sku.trim().toUpperCase() !== editingProduct.sku ||
     productForm.name.trim() !== editingProduct.name ||
@@ -50,6 +70,22 @@ export function computeHasProductChanges(editingProduct: ProductDetail | null, p
     productForm.isRefurbished !== Boolean(editingProduct.isRefurbished) ||
     productForm.level3Id !== (editingProduct.categoryId ?? 'none') ||
     productForm.imageS3Keys.filter((item) => item.trim().length > 0).join('|') !== editingProduct.imageS3Keys.join('|') ||
-    productForm.videoUrls.filter((item) => item.trim().length > 0).join('|') !== editingProduct.videoUrls.join('|')
+    productForm.videoUrls.filter((item) => item.trim().length > 0).join('|') !== editingProduct.videoUrls.join('|') ||
+    prevStores !== nextStores
+  )
+}
+
+export function computeHasStoreChanges(editingStore: StoreItem | null, storeForm: StoreFormState) {
+  if (editingStore === null) {
+    return storeForm.name.trim().length >= 2
+  }
+  return (
+    storeForm.name.trim() !== editingStore.name ||
+    storeForm.slug.trim().toLowerCase() !== editingStore.slug.toLowerCase() ||
+    (storeForm.email.trim() || '') !== (editingStore.email ?? '') ||
+    (storeForm.phone.trim() || '') !== (editingStore.phone ?? '') ||
+    storeForm.defaultCurrencyCode.trim() !== editingStore.defaultCurrencyCode ||
+    storeForm.timezone.trim() !== editingStore.timezone ||
+    storeForm.isActive !== editingStore.isActive
   )
 }

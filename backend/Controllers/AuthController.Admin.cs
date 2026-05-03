@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace backend.Controllers;
 
@@ -187,6 +188,37 @@ public partial class AuthController
         });
     }
 
+    /// <summary>Store IDs assigned via store_staff (admin uses this when editing store_manager/staff).</summary>
+    [Authorize]
+    [HttpGet("users/{id:guid}/managed-stores")]
+    public async Task<IActionResult> GetUserManagedStoreIds([FromRoute] Guid id)
+    {
+        var currentUserRole = await GetCurrentUserRoleAsync();
+        if (!CanAccessDashboard(currentUserRole))
+        {
+            return Forbid();
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          SELECT ss.store_id
+                          FROM app.store_staff ss
+                          WHERE ss.user_id = @user_id
+                          ORDER BY ss.created_at ASC;
+                          """;
+        cmd.Parameters.AddWithValue("user_id", id);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var storeIds = new List<Guid>();
+        while (await reader.ReadAsync())
+        {
+            storeIds.Add(reader.GetGuid(0));
+        }
+
+        return Ok(new { storeIds });
+    }
+
     [Authorize]
     [HttpPut("users/{id:guid}")]
     public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UpdateUserRequest request)
@@ -246,42 +278,69 @@ public partial class AuthController
         }
 
         await EnsureRolePermissionsAsync(conn, nextRole);
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-                          UPDATE app.users
-                          SET
-                              first_name = @first_name,
-                              last_name = @last_name,
-                              email = @email,
-                              mobile = @mobile,
-                              role = CAST(@role AS app.user_role),
-                              is_active = @is_active,
-                              updated_at = NOW()
-                          WHERE id = @user_id
-                          RETURNING
-                              id,
-                              role::text,
-                              first_name,
-                              last_name,
-                              email,
-                              mobile,
-                              is_active,
-                              created_at,
-                              updated_at;
-                          """;
-        cmd.Parameters.AddWithValue("user_id", id);
-        cmd.Parameters.AddWithValue("first_name", firstName);
-        cmd.Parameters.AddWithValue("last_name", lastName);
-        cmd.Parameters.AddWithValue("email", email);
-        cmd.Parameters.AddWithValue("mobile", (object?)mobile ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("role", nextRole);
-        cmd.Parameters.AddWithValue("is_active", isActive);
 
+        var isAdmin = string.Equals(currentUserRole, "admin", StringComparison.OrdinalIgnoreCase);
+        if (isAdmin && request.ManagedStoreIds != null && nextRole is "store_manager" or "staff")
+        {
+            foreach (var storeId in request.ManagedStoreIds.Distinct())
+            {
+                await using var verifyCmd = conn.CreateCommand();
+                verifyCmd.CommandText = "SELECT 1 FROM app.stores WHERE id = @sid LIMIT 1;";
+                verifyCmd.Parameters.AddWithValue("sid", storeId);
+                var exists = await verifyCmd.ExecuteScalarAsync();
+                if (exists is null)
+                {
+                    return BadRequest(new
+                    {
+                        message = "Validation failed.",
+                        errors = new Dictionary<string, string>
+                        {
+                            ["managedStoreIds"] = $"Store {storeId} does not exist."
+                        }
+                    });
+                }
+            }
+        }
+
+        await using var tx = await conn.BeginTransactionAsync();
         try
         {
+            await using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = """
+                              UPDATE app.users
+                              SET
+                                  first_name = @first_name,
+                                  last_name = @last_name,
+                                  email = @email,
+                                  mobile = @mobile,
+                                  role = CAST(@role AS app.user_role),
+                                  is_active = @is_active,
+                                  updated_at = NOW()
+                              WHERE id = @user_id
+                              RETURNING
+                                  id,
+                                  role::text,
+                                  first_name,
+                                  last_name,
+                                  email,
+                                  mobile,
+                                  is_active,
+                                  created_at,
+                                  updated_at;
+                              """;
+            cmd.Parameters.AddWithValue("user_id", id);
+            cmd.Parameters.AddWithValue("first_name", firstName);
+            cmd.Parameters.AddWithValue("last_name", lastName);
+            cmd.Parameters.AddWithValue("email", email);
+            cmd.Parameters.AddWithValue("mobile", (object?)mobile ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("role", nextRole);
+            cmd.Parameters.AddWithValue("is_active", isActive);
+
             await using var reader = await cmd.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
             {
+                await tx.RollbackAsync();
                 return NotFound(new { message = "User not found." });
             }
 
@@ -295,6 +354,13 @@ public partial class AuthController
             var updatedCreatedAt = reader.GetDateTime(7);
             var updatedAt = reader.GetDateTime(8);
             await reader.DisposeAsync();
+
+            if (isAdmin)
+            {
+                await SyncUserManagedStoresAsync(conn, tx, id, nextRole, request.ManagedStoreIds);
+            }
+
+            await tx.CommitAsync();
 
             await WriteAuditLogAsync(
                 conn,
@@ -321,12 +387,58 @@ public partial class AuthController
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
+            await tx.RollbackAsync();
             return Conflict(new
             {
                 message = "Email is already registered.",
                 errors = new Dictionary<string, string> { ["email"] = "This email already exists." }
             });
         }
+    }
+
+    private static async Task SyncUserManagedStoresAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction tx,
+        Guid userId,
+        string nextRole,
+        Guid[]? managedStoreIds)
+    {
+        if (managedStoreIds is not null)
+        {
+            await DeleteStoreStaffForUserAsync(conn, tx, userId);
+            if (nextRole is "store_manager" or "staff")
+            {
+                foreach (var sid in managedStoreIds.Distinct())
+                {
+                    await using var ins = conn.CreateCommand();
+                    ins.Transaction = tx;
+                    ins.CommandText = """
+                                      INSERT INTO app.store_staff (store_id, user_id)
+                                      VALUES (@store_id, @user_id)
+                                      ON CONFLICT (store_id, user_id) DO NOTHING;
+                                      """;
+                    ins.Parameters.AddWithValue("store_id", sid);
+                    ins.Parameters.AddWithValue("user_id", userId);
+                    await ins.ExecuteNonQueryAsync();
+                }
+            }
+
+            return;
+        }
+
+        if (nextRole is not "store_manager" and not "staff")
+        {
+            await DeleteStoreStaffForUserAsync(conn, tx, userId);
+        }
+    }
+
+    private static async Task DeleteStoreStaffForUserAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid userId)
+    {
+        await using var del = conn.CreateCommand();
+        del.Transaction = tx;
+        del.CommandText = "DELETE FROM app.store_staff WHERE user_id = @user_id;";
+        del.Parameters.AddWithValue("user_id", userId);
+        await del.ExecuteNonQueryAsync();
     }
 
     [Authorize]

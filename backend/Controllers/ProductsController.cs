@@ -29,7 +29,8 @@ public class ProductsController : ControllerBase
         string[]? ImageS3Keys,
         string[]? VideoUrls,
         bool IsClearance = false,
-        bool IsRefurbished = false
+        bool IsRefurbished = false,
+        Guid[]? StoreIds = null
     );
 
     [AllowAnonymous]
@@ -657,22 +658,61 @@ public class ProductsController : ControllerBase
         await using var conn = await _dataSource.OpenConnectionAsync();
         var hasProductVideosTable = await HasProductVideosTableAsync(conn);
 
+        var isAdmin = IsAdminRole(currentUserRole);
+        Guid[]? managedIdsParam = null;
+        if (!isAdmin)
+        {
+            var actorId = GetCurrentUserId();
+            if (actorId is null)
+            {
+                return Unauthorized(new { message = "Invalid session token." });
+            }
+
+            var managed = await GetManagedStoreIdsForUserAsync(conn, actorId.Value);
+            if (managed.Count == 0)
+            {
+                return Ok(new
+                {
+                    items = Array.Empty<object>(),
+                    page = safePage,
+                    pageSize = safePageSize,
+                    totalItems = 0,
+                    totalPages = 1
+                });
+            }
+
+            managedIdsParam = managed.ToArray();
+        }
+
+        const string storeScopeSql = """
+                                    AND EXISTS (
+                                        SELECT 1 FROM app.store_products sp
+                                        WHERE sp.product_id = p.id AND sp.store_id = ANY(@managed_ids)
+                                    )
+                                    """;
+
         await using var countCmd = conn.CreateCommand();
-        countCmd.CommandText = """
-                              SELECT COUNT(*)
-                              FROM app.products p
-                              WHERE (@category_id IS NULL OR p.category_id = @category_id)
-                                AND (@status IS NULL OR lower(p.status) = @status)
-                                AND (@search IS NULL OR p.name ILIKE '%' || @search || '%' OR p.sku ILIKE '%' || @search || '%');
-                              """;
+        countCmd.CommandText = $"""
+                                SELECT COUNT(*)
+                                FROM app.products p
+                                WHERE (@category_id IS NULL OR p.category_id = @category_id)
+                                  AND (@status IS NULL OR lower(p.status) = @status)
+                                  AND (@search IS NULL OR p.name ILIKE '%' || @search || '%' OR p.sku ILIKE '%' || @search || '%')
+                                  {(isAdmin ? "" : storeScopeSql)};
+                                """;
         AddNullableUuidParameter(countCmd, "category_id", categoryId);
         AddNullableTextParameter(countCmd, "status", statusFilter);
         AddNullableTextParameter(countCmd, "search", search);
+        if (!isAdmin)
+        {
+            countCmd.Parameters.Add(new NpgsqlParameter("managed_ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = managedIdsParam! });
+        }
+
         var totalItems = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = hasProductVideosTable
-            ? """
+            ? $"""
                           SELECT
                               p.id,
                               p.sku,
@@ -691,10 +731,11 @@ public class ProductsController : ControllerBase
                           WHERE (@category_id IS NULL OR p.category_id = @category_id)
                             AND (@status IS NULL OR lower(p.status) = @status)
                             AND (@search IS NULL OR p.name ILIKE '%' || @search || '%' OR p.sku ILIKE '%' || @search || '%')
+                            {(isAdmin ? "" : storeScopeSql)}
                           ORDER BY p.created_at DESC
                           LIMIT @limit OFFSET @offset;
                           """
-            : """
+            : $"""
                           SELECT
                               p.id,
                               p.sku,
@@ -713,12 +754,18 @@ public class ProductsController : ControllerBase
                           WHERE (@category_id IS NULL OR p.category_id = @category_id)
                             AND (@status IS NULL OR lower(p.status) = @status)
                             AND (@search IS NULL OR p.name ILIKE '%' || @search || '%' OR p.sku ILIKE '%' || @search || '%')
+                            {(isAdmin ? "" : storeScopeSql)}
                           ORDER BY p.created_at DESC
                           LIMIT @limit OFFSET @offset;
                           """;
         AddNullableUuidParameter(cmd, "category_id", categoryId);
         AddNullableTextParameter(cmd, "status", statusFilter);
         AddNullableTextParameter(cmd, "search", search);
+        if (!isAdmin)
+        {
+            cmd.Parameters.Add(new NpgsqlParameter("managed_ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = managedIdsParam! });
+        }
+
         cmd.Parameters.AddWithValue("limit", safePageSize);
         cmd.Parameters.AddWithValue("offset", offset);
 
@@ -812,6 +859,24 @@ public class ProductsController : ControllerBase
             ? await GetProductVideosAsync(conn, productId)
             : [];
 
+        var storeIds = await GetStoreIdsForProductAsync(conn, productId);
+        if (!IsAdminRole(currentUserRole))
+        {
+            var actorId = GetCurrentUserId();
+            if (actorId is null)
+            {
+                return Unauthorized(new { message = "Invalid session token." });
+            }
+
+            var managed = await GetManagedStoreIdsForUserAsync(conn, actorId.Value);
+            if (!storeIds.Any(sid => managed.Contains(sid)))
+            {
+                return NotFound(new { message = "Product not found." });
+            }
+
+            storeIds = storeIds.Where(managed.Contains).ToList();
+        }
+
         return Ok(new
         {
             id = productId,
@@ -827,7 +892,8 @@ public class ProductsController : ControllerBase
             isClearance,
             isRefurbished,
             imageS3Keys,
-            videoUrls
+            videoUrls,
+            storeIds
         });
     }
 
@@ -883,6 +949,18 @@ public class ProductsController : ControllerBase
 
         var actorUserId = GetCurrentUserId();
         await using var conn = await _dataSource.OpenConnectionAsync();
+        var (storeErrors, effectiveStoreIds) = await ResolveStoreIdsForUpsertAsync(
+            currentUserRole,
+            actorUserId,
+            request,
+            isCreate: true,
+            existingProductId: null,
+            conn);
+        if (storeErrors.Count > 0)
+        {
+            return BadRequest(new { message = "Validation failed.", errors = storeErrors });
+        }
+
         await using var tx = await conn.BeginTransactionAsync();
         var hasProductVideosTable = await HasProductVideosTableAsync(conn);
 
@@ -923,11 +1001,14 @@ public class ProductsController : ControllerBase
                 await ReplaceProductVideosAsync(conn, tx, productId, normalized.VideoUrls);
             }
 
+            await ReplaceAllStoreProductLinksAsync(conn, tx, productId, effectiveStoreIds);
+
             await WriteAuditLogAsync(conn, tx, actorUserId, "product.created", "product", productId, new
             {
                 normalized.Sku,
                 normalized.Name,
-                normalized.Status
+                normalized.Status,
+                storeIds = effectiveStoreIds
             });
 
             await tx.CommitAsync();
@@ -945,6 +1026,7 @@ public class ProductsController : ControllerBase
                 isRefurbished = normalized.IsRefurbished,
                 imageS3Keys = normalized.ImageS3Keys,
                 videoUrls = normalized.VideoUrls,
+                storeIds = effectiveStoreIds,
                 createdAt,
                 updatedAt
             });
@@ -978,6 +1060,18 @@ public class ProductsController : ControllerBase
 
         var actorUserId = GetCurrentUserId();
         await using var conn = await _dataSource.OpenConnectionAsync();
+        var (storeErrors, effectiveStoreIds) = await ResolveStoreIdsForUpsertAsync(
+            currentUserRole,
+            actorUserId,
+            request,
+            isCreate: false,
+            existingProductId: id,
+            conn);
+        if (storeErrors.Count > 0)
+        {
+            return BadRequest(new { message = "Validation failed.", errors = storeErrors });
+        }
+
         await using var tx = await conn.BeginTransactionAsync();
         var hasProductVideosTable = await HasProductVideosTableAsync(conn);
 
@@ -1037,14 +1131,34 @@ public class ProductsController : ControllerBase
                 await ReplaceProductVideosAsync(conn, tx, id, normalized.VideoUrls);
             }
 
+            if (IsAdminRole(currentUserRole))
+            {
+                await ReplaceAllStoreProductLinksAsync(conn, tx, id, effectiveStoreIds);
+            }
+            else
+            {
+                var managed = actorUserId is null
+                    ? new List<Guid>()
+                    : await GetManagedStoreIdsForUserAsync(conn, actorUserId.Value);
+                await MergeStoreProductLinksForStoreManagerAsync(conn, tx, id, managed, effectiveStoreIds);
+            }
+
             await WriteAuditLogAsync(conn, tx, actorUserId, "product.updated", "product", id, new
             {
                 normalized.Sku,
                 normalized.Name,
-                normalized.Status
+                normalized.Status,
+                storeIds = effectiveStoreIds
             });
 
             await tx.CommitAsync();
+
+            var storeIdsResponse = await GetStoreIdsForProductAsync(conn, id);
+            if (!IsAdminRole(currentUserRole) && actorUserId is not null)
+            {
+                var managedOut = await GetManagedStoreIdsForUserAsync(conn, actorUserId.Value);
+                storeIdsResponse = storeIdsResponse.Where(managedOut.Contains).ToList();
+            }
 
             return Ok(new
             {
@@ -1059,6 +1173,7 @@ public class ProductsController : ControllerBase
                 isRefurbished = normalized.IsRefurbished,
                 imageS3Keys = normalized.ImageS3Keys,
                 videoUrls = normalized.VideoUrls,
+                storeIds = storeIdsResponse,
                 createdAt,
                 updatedAt
             });
@@ -1086,6 +1201,27 @@ public class ProductsController : ControllerBase
 
         var actorUserId = GetCurrentUserId();
         await using var conn = await _dataSource.OpenConnectionAsync();
+
+        if (!IsAdminRole(currentUserRole))
+        {
+            if (actorUserId is null)
+            {
+                return Unauthorized(new { message = "Invalid session token." });
+            }
+
+            var managed = await GetManagedStoreIdsForUserAsync(conn, actorUserId.Value);
+            var productStores = await GetStoreIdsForProductAsync(conn, id);
+            if (productStores.Count == 0)
+            {
+                return NotFound(new { message = "Product not found." });
+            }
+
+            if (productStores.Any(s => !managed.Contains(s)))
+            {
+                return Forbid();
+            }
+        }
+
         await using var tx = await conn.BeginTransactionAsync();
 
         await using var cmd = conn.CreateCommand();
@@ -1212,6 +1348,238 @@ public class ProductsController : ControllerBase
         }
 
         return (errors, sku, name, description, request.BasePrice, status, request.CategoryId, imageS3Keys, videoUrls, request.IsClearance, request.IsRefurbished);
+    }
+
+    private static bool IsAdminRole(string? role)
+    {
+        return string.Equals(role, "admin", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<List<Guid>> GetManagedStoreIdsForUserAsync(NpgsqlConnection conn, Guid userId)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          SELECT store_id
+                          FROM app.store_staff
+                          WHERE user_id = @uid
+                          ORDER BY created_at ASC;
+                          """;
+        cmd.Parameters.AddWithValue("uid", userId);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var ids = new List<Guid>();
+        while (await reader.ReadAsync())
+        {
+            ids.Add(reader.GetGuid(0));
+        }
+
+        return ids;
+    }
+
+    private static async Task<List<Guid>> GetStoreIdsForProductAsync(NpgsqlConnection conn, Guid productId, NpgsqlTransaction? tx = null)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+                          SELECT store_id
+                          FROM app.store_products
+                          WHERE product_id = @pid
+                          ORDER BY store_id;
+                          """;
+        cmd.Parameters.AddWithValue("pid", productId);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var ids = new List<Guid>();
+        while (await reader.ReadAsync())
+        {
+            ids.Add(reader.GetGuid(0));
+        }
+
+        return ids;
+    }
+
+    private static async Task ValidateStoreIdsExistAsync(NpgsqlConnection conn, List<Guid> ids, Dictionary<string, string> errors)
+    {
+        foreach (var sid in ids)
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT 1 FROM app.stores WHERE id = @id LIMIT 1;";
+            cmd.Parameters.AddWithValue("id", sid);
+            var ok = await cmd.ExecuteScalarAsync();
+            if (ok is null)
+            {
+                errors["storeIds"] = $"Store {sid} does not exist.";
+                return;
+            }
+        }
+    }
+
+    private async Task<(Dictionary<string, string> Errors, List<Guid> EffectiveIds)> ResolveStoreIdsForUpsertAsync(
+        string? role,
+        Guid? actorUserId,
+        UpsertProductRequest request,
+        bool isCreate,
+        Guid? existingProductId,
+        NpgsqlConnection conn)
+    {
+        var errors = new Dictionary<string, string>();
+        if (IsAdminRole(role))
+        {
+            if (request.StoreIds == null || request.StoreIds.Length == 0)
+            {
+                errors["storeIds"] = "Select at least one store.";
+                return (errors, []);
+            }
+
+            var ids = request.StoreIds.Distinct().ToList();
+            await ValidateStoreIdsExistAsync(conn, ids, errors);
+            return (errors, ids);
+        }
+
+        if (actorUserId is null)
+        {
+            errors["storeIds"] = "Invalid session.";
+            return (errors, []);
+        }
+
+        var managed = await GetManagedStoreIdsForUserAsync(conn, actorUserId.Value);
+        if (managed.Count == 0)
+        {
+            errors["storeIds"] = "Your account is not assigned to any store. Ask an admin to assign stores.";
+            return (errors, []);
+        }
+
+        if (request.StoreIds == null || request.StoreIds.Length == 0)
+        {
+            if (isCreate)
+            {
+                return (errors, managed.ToList());
+            }
+
+            if (existingProductId is null)
+            {
+                errors["storeIds"] = "Product reference missing.";
+                return (errors, []);
+            }
+
+            var existingForProduct = await GetStoreIdsForProductAsync(conn, existingProductId.Value);
+            var intersection = existingForProduct.Where(managed.Contains).ToList();
+            if (intersection.Count == 0)
+            {
+                errors["storeIds"] = "You do not manage any store that carries this product.";
+                return (errors, []);
+            }
+
+            return (errors, intersection);
+        }
+
+        var want = request.StoreIds.Distinct().ToList();
+        if (want.Count == 0)
+        {
+            errors["storeIds"] = "Select at least one store.";
+            return (errors, []);
+        }
+
+        if (want.Any(x => !managed.Contains(x)))
+        {
+            errors["storeIds"] = "You can only assign stores you manage.";
+            return (errors, []);
+        }
+
+        return (errors, want);
+    }
+
+    private static async Task ReplaceAllStoreProductLinksAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid productId, List<Guid> storeIds)
+    {
+        await using (var delSp = conn.CreateCommand())
+        {
+            delSp.Transaction = tx;
+            delSp.CommandText = "DELETE FROM app.store_products WHERE product_id = @pid;";
+            delSp.Parameters.AddWithValue("pid", productId);
+            await delSp.ExecuteNonQueryAsync();
+        }
+
+        await using (var delSt = conn.CreateCommand())
+        {
+            delSt.Transaction = tx;
+            delSt.CommandText = "DELETE FROM app.stock WHERE product_id = @pid;";
+            delSt.Parameters.AddWithValue("pid", productId);
+            await delSt.ExecuteNonQueryAsync();
+        }
+
+        foreach (var sid in storeIds.Distinct())
+        {
+            await InsertStoreProductAndStockAsync(conn, tx, sid, productId);
+        }
+    }
+
+    private static async Task MergeStoreProductLinksForStoreManagerAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction tx,
+        Guid productId,
+        List<Guid> managed,
+        List<Guid> want)
+    {
+        var wantArray = want.Distinct().ToArray();
+        var managedArray = managed.Distinct().ToArray();
+
+        await using (var delSp = conn.CreateCommand())
+        {
+            delSp.Transaction = tx;
+            delSp.CommandText = """
+                                DELETE FROM app.store_products sp
+                                WHERE sp.product_id = @pid
+                                  AND sp.store_id = ANY(@managed_ids)
+                                  AND NOT (sp.store_id = ANY(@want_ids));
+                                """;
+            delSp.Parameters.AddWithValue("pid", productId);
+            delSp.Parameters.Add(new NpgsqlParameter("managed_ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = managedArray });
+            delSp.Parameters.Add(new NpgsqlParameter("want_ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = wantArray });
+            await delSp.ExecuteNonQueryAsync();
+        }
+
+        await using (var delSt = conn.CreateCommand())
+        {
+            delSt.Transaction = tx;
+            delSt.CommandText = """
+                                DELETE FROM app.stock s
+                                WHERE s.product_id = @pid
+                                  AND s.store_id = ANY(@managed_ids)
+                                  AND NOT (s.store_id = ANY(@want_ids));
+                                """;
+            delSt.Parameters.AddWithValue("pid", productId);
+            delSt.Parameters.Add(new NpgsqlParameter("managed_ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = managedArray });
+            delSt.Parameters.Add(new NpgsqlParameter("want_ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = wantArray });
+            await delSt.ExecuteNonQueryAsync();
+        }
+
+        foreach (var sid in wantArray)
+        {
+            await InsertStoreProductAndStockAsync(conn, tx, sid, productId);
+        }
+    }
+
+    private static async Task InsertStoreProductAndStockAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid storeId, Guid productId)
+    {
+        await using var sp = conn.CreateCommand();
+        sp.Transaction = tx;
+        sp.CommandText = """
+                          INSERT INTO app.store_products (store_id, product_id, is_visible)
+                          VALUES (@sid, @pid, TRUE)
+                          ON CONFLICT (store_id, product_id) DO UPDATE SET is_visible = EXCLUDED.is_visible;
+                          """;
+        sp.Parameters.AddWithValue("sid", storeId);
+        sp.Parameters.AddWithValue("pid", productId);
+        await sp.ExecuteNonQueryAsync();
+
+        await using var st = conn.CreateCommand();
+        st.Transaction = tx;
+        st.CommandText = """
+                          INSERT INTO app.stock (store_id, product_id, quantity)
+                          VALUES (@sid, @pid, 0)
+                          ON CONFLICT (store_id, product_id) DO NOTHING;
+                          """;
+        st.Parameters.AddWithValue("sid", storeId);
+        st.Parameters.AddWithValue("pid", productId);
+        await st.ExecuteNonQueryAsync();
     }
 
     private static bool IsValidProductStatus(string status)

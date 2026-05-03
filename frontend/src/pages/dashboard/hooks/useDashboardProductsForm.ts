@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 
+import { useAppSelector } from '../../../app/hooks'
 import { API_BASE_URL } from '../../../features/auth/authConstants'
 import { executeProductSoftDelete } from '../products/executeProductDelete'
 import { executeProductUpsert } from '../products/executeProductUpsert'
@@ -9,6 +10,7 @@ import { computeHasProductChanges } from '../dashboardDerivedFlags'
 import type {
   CategoryParentOption,
   DashboardFeatureKey,
+  ManagedStoreOption,
   ProductDetail,
   ProductFormState,
   ProductItem,
@@ -26,8 +28,11 @@ export function useDashboardProductsForm(
   list: ProductsListSlice,
   setInlineStatusMessage: Dispatch<SetStateAction<string | null>>,
   setInlineStatusType: Dispatch<SetStateAction<'success' | 'info' | 'error'>>,
+  dashboardApiReady: boolean,
 ) {
   const { setProductsState, productCategoriesTree } = list
+  const userRole = useAppSelector((state) => state.auth.user?.role)
+  const isAdminUser = userRole === 'admin'
   const [isProductFormOpen, setIsProductFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ProductDetail | null>(null)
   const [confirmDeleteProduct, setConfirmDeleteProduct] = useState<ProductItem | null>(null)
@@ -47,7 +52,38 @@ export function useDashboardProductsForm(
     level3Id: 'none',
     imageS3Keys: [],
     videoUrls: [],
+    storeIds: [],
   })
+
+  const [managedStores, setManagedStores] = useState<ManagedStoreOption[]>([])
+  const [isManagedStoresLoading, setIsManagedStoresLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeFeature !== 'products' || !dashboardApiReady) {
+      return
+    }
+    let mounted = true
+    const loadManaged = async () => {
+      setIsManagedStoresLoading(true)
+      try {
+        const response = await fetchWithAutoRefresh(`${API_BASE_URL}/api/stores/managed`, {
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        if (!response.ok) throw new Error(`Unable to load stores (${response.status})`)
+        const payload = (await response.json()) as { items?: ManagedStoreOption[] }
+        if (mounted) setManagedStores(payload.items ?? [])
+      } catch {
+        if (mounted) setManagedStores([])
+      } finally {
+        if (mounted) setIsManagedStoresLoading(false)
+      }
+    }
+    void loadManaged()
+    return () => {
+      mounted = false
+    }
+  }, [activeFeature, dashboardApiReady])
 
   useEffect(() => {
     if (activeFeature !== 'products') {
@@ -67,6 +103,7 @@ export function useDashboardProductsForm(
         level3Id: 'none',
         imageS3Keys: [],
         videoUrls: [],
+        storeIds: [],
       })
     }
   }, [activeFeature])
@@ -95,6 +132,7 @@ export function useDashboardProductsForm(
       level3Id: 'none',
       imageS3Keys: [],
       videoUrls: [],
+      storeIds: [],
     })
   }
 
@@ -107,8 +145,39 @@ export function useDashboardProductsForm(
   const openCreateProductForm = () => {
     setEditingProduct(null)
     setIsProductFormOpen(true)
-    resetProductForm()
     setInlineStatusMessage(null)
+    const defaultStoreIds = managedStores.map((m) => m.id)
+    setProductForm({
+      sku: '',
+      name: '',
+      description: '',
+      basePrice: '',
+      status: 'active',
+      isClearance: false,
+      isRefurbished: false,
+      level1Id: 'none',
+      level2Id: 'none',
+      level3Id: 'none',
+      imageS3Keys: [],
+      videoUrls: [],
+      storeIds: defaultStoreIds,
+    })
+  }
+
+  const toggleProductStoreId = (storeId: string) => {
+    setProductForm((prev) => {
+      const set = new Set(prev.storeIds)
+      if (set.has(storeId)) set.delete(storeId)
+      else set.add(storeId)
+      return { ...prev, storeIds: [...set] }
+    })
+  }
+
+  const selectAllManagedStores = () => {
+    setProductForm((prev) => ({
+      ...prev,
+      storeIds: managedStores.map((m) => m.id),
+    }))
   }
 
   const openEditProductForm = async (product: ProductItem) => {
@@ -140,6 +209,7 @@ export function useDashboardProductsForm(
         level3Id: level3?.id ?? 'none',
         imageS3Keys: detail.imageS3Keys,
         videoUrls: detail.videoUrls,
+        storeIds: (detail.storeIds ?? []).map(String),
       })
     } catch (error) {
       setInlineStatusType('error')
@@ -225,6 +295,11 @@ export function useDashboardProductsForm(
     level1Options,
     level2Options,
     level3Options,
+    managedStores,
+    isManagedStoresLoading,
+    isAdminUser,
+    toggleProductStoreId,
+    selectAllManagedStores,
     closeProductForm,
     openCreateProductForm,
     openEditProductForm,

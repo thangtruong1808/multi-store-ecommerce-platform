@@ -13,6 +13,13 @@ export function useDashboardProductsBlock(
   dashboardApiReady: boolean,
 ) {
   const list = useDashboardProductsList(activeFeature, page, pageSize, dashboardApiReady)
-  const form = useDashboardProductsForm(activeFeature, pageSize, list, setInlineStatusMessage, setInlineStatusType)
+  const form = useDashboardProductsForm(
+    activeFeature,
+    pageSize,
+    list,
+    setInlineStatusMessage,
+    setInlineStatusType,
+    dashboardApiReady,
+  )
   return { ...list, ...form }
 }

@@ -8,6 +8,7 @@ import {
   computeHasCategoryChanges,
   computeHasEditChanges,
   computeHasProductChanges,
+  computeHasStoreChanges,
 } from '../dashboardDerivedFlags'
 import { deriveDashboardPagination } from '../dashboardPaginationUtils'
 import type { DashboardFeatureKey } from '../dashboardTypes'
@@ -15,6 +16,7 @@ import { useDashboardCategoriesBlock } from './useDashboardCategoriesBlock'
 import { invalidateDashboardSession } from '../fetchDashboardApi'
 import { useDashboardChrome } from './useDashboardChrome'
 import { useDashboardProductsBlock } from './useDashboardProductsBlock'
+import { useDashboardStoresBlock } from './useDashboardStoresBlock'
 import { useDashboardUsersBlock } from './useDashboardUsersBlock'
 
 export function useDashboardModel() {
@@ -62,6 +64,15 @@ export function useDashboardModel() {
     dashboardApiReady,
   )
 
+  const stores = useDashboardStoresBlock(
+    activeFeature,
+    page,
+    pageSize,
+    chrome.setInlineStatusMessage,
+    chrome.setInlineStatusType,
+    dashboardApiReady,
+  )
+
   const users = useDashboardUsersBlock(
     activeFeature,
     page,
@@ -78,6 +89,7 @@ export function useDashboardModel() {
         page,
         pageSize,
         usersState: users.usersState,
+        storesState: stores.storesState,
         categoriesState: categories.categoriesState,
         productsState: products.productsState,
         activityLogsState: users.activityLogsState,
@@ -87,6 +99,7 @@ export function useDashboardModel() {
       page,
       pageSize,
       users.usersState,
+      stores.storesState,
       categories.categoriesState,
       products.productsState,
       users.activityLogsState,
@@ -94,8 +107,8 @@ export function useDashboardModel() {
   )
 
   const hasEditChanges = useMemo(
-    () => computeHasEditChanges(users.editingUser, users.editForm),
-    [users.editingUser, users.editForm],
+    () => computeHasEditChanges(users.editingUser, users.editForm, users.baselineManagedStoreIds),
+    [users.editingUser, users.editForm, users.baselineManagedStoreIds],
   )
   const hasCategoryChanges = useMemo(
     () => computeHasCategoryChanges(categories.editingCategory, categories.categoryForm),
@@ -104,6 +117,10 @@ export function useDashboardModel() {
   const hasProductChanges = useMemo(
     () => computeHasProductChanges(products.editingProduct, products.productForm),
     [products.editingProduct, products.productForm],
+  )
+  const hasStoreChanges = useMemo(
+    () => computeHasStoreChanges(stores.editingStore, stores.storeForm),
+    [stores.editingStore, stores.storeForm],
   )
 
   const fullName = useMemo(
@@ -118,7 +135,12 @@ export function useDashboardModel() {
     }
   }
 
-  const aggregateError = users.usersError ?? categories.categoriesError ?? products.productsError ?? users.activityLogsError
+  const aggregateError =
+    users.usersError ??
+    stores.storesError ??
+    categories.categoriesError ??
+    products.productsError ??
+    users.activityLogsError
 
   return {
     isAuthenticated,
@@ -142,11 +164,13 @@ export function useDashboardModel() {
 
     categories,
     products,
+    stores,
     users,
 
     hasEditChanges,
     hasCategoryChanges,
     hasProductChanges,
+    hasStoreChanges,
 
     handleLogout,
   }

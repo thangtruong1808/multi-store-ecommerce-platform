@@ -4,13 +4,15 @@ import type {
   CategoriesResponse,
   DashboardFeatureKey,
   ProductsResponse,
+  StoresResponse,
   UsersResponse,
 } from './dashboardTypes'
 
-/** Mock / static feature rows shown for stores, vouchers, invoices. */
+/** Mock / static feature rows shown for vouchers, invoices. */
 export function getNonUserRows(activeFeature: DashboardFeatureKey) {
   if (
     activeFeature === 'users' ||
+    activeFeature === 'stores' ||
     activeFeature === 'categories' ||
     activeFeature === 'products' ||
     activeFeature === 'activityLogs'
@@ -25,11 +27,13 @@ export function deriveDashboardPagination(args: {
   page: number
   pageSize: number
   usersState: UsersResponse
+  storesState: StoresResponse
   categoriesState: CategoriesResponse
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
 }) {
-  const { activeFeature, page, pageSize, usersState, categoriesState, productsState, activityLogsState } = args
+  const { activeFeature, page, pageSize, usersState, storesState, categoriesState, productsState, activityLogsState } =
+    args
 
   const nonUserRows = getNonUserRows(activeFeature)
   const nonUserTotal = nonUserRows.length
@@ -40,35 +44,41 @@ export function deriveDashboardPagination(args: {
   const totalItems =
     activeFeature === 'users'
       ? usersState.totalItems
-      : activeFeature === 'categories'
-        ? categoriesState.totalItems
-        : activeFeature === 'products'
-          ? productsState.totalItems
-          : activeFeature === 'activityLogs'
-            ? activityLogsState.totalItems
-            : nonUserTotal
+      : activeFeature === 'stores'
+        ? storesState.totalItems
+        : activeFeature === 'categories'
+          ? categoriesState.totalItems
+          : activeFeature === 'products'
+            ? productsState.totalItems
+            : activeFeature === 'activityLogs'
+              ? activityLogsState.totalItems
+              : nonUserTotal
 
   const totalPages =
     activeFeature === 'users'
       ? usersState.totalPages
-      : activeFeature === 'categories'
-        ? categoriesState.totalPages
-        : activeFeature === 'products'
-          ? productsState.totalPages
-          : activeFeature === 'activityLogs'
-            ? activityLogsState.totalPages
-            : nonUserTotalPages
+      : activeFeature === 'stores'
+        ? storesState.totalPages
+        : activeFeature === 'categories'
+          ? categoriesState.totalPages
+          : activeFeature === 'products'
+            ? productsState.totalPages
+            : activeFeature === 'activityLogs'
+              ? activityLogsState.totalPages
+              : nonUserTotalPages
 
   const currentItems =
     activeFeature === 'users'
       ? usersState.items.length
-      : activeFeature === 'categories'
-        ? categoriesState.items.length
-        : activeFeature === 'products'
-          ? productsState.items.length
-          : activeFeature === 'activityLogs'
-            ? activityLogsState.items.length
-            : nonUserItems.length
+      : activeFeature === 'stores'
+        ? storesState.items.length
+        : activeFeature === 'categories'
+          ? categoriesState.items.length
+          : activeFeature === 'products'
+            ? productsState.items.length
+            : activeFeature === 'activityLogs'
+              ? activityLogsState.items.length
+              : nonUserItems.length
 
   return { nonUserItems, totalItems, totalPages, currentItems }
 }

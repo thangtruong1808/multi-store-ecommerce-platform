@@ -23,14 +23,9 @@ export const sideBarItems: SidebarItem[] = [
 ]
 
 export const mockData: Record<
-  Exclude<DashboardFeatureKey, 'users' | 'categories' | 'products' | 'activityLogs'>,
+  Exclude<DashboardFeatureKey, 'users' | 'categories' | 'products' | 'activityLogs' | 'stores'>,
   BasicRow[]
 > = {
-  stores: [
-    { id: '1', primary: 'Sydney Flagship', secondary: 'AU-SYD', status: 'Active' },
-    { id: '2', primary: 'Melbourne Central', secondary: 'AU-MEL', status: 'Active' },
-    { id: '3', primary: 'Brisbane Online Hub', secondary: 'AU-BNE', status: 'Draft' },
-  ],
   vouchers: [
     { id: '1', primary: 'WELCOME10', secondary: '10% Off', status: 'Active' },
     { id: '2', primary: 'FREESHIP', secondary: 'Free Delivery', status: 'Active' },

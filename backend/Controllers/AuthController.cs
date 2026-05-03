@@ -239,7 +239,8 @@ public partial class AuthController : ControllerBase
         string Email,
         string? Mobile,
         string Role,
-        bool IsActive
+        bool IsActive,
+        Guid[]? ManagedStoreIds = null
     );
     public sealed record UpdateProfileRequest(
         string FirstName,

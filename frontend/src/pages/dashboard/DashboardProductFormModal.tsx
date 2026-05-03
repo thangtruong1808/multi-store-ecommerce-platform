@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { FiCheck, FiPackage, FiPlus, FiX } from 'react-icons/fi'
 
 import { DashboardSpinner } from './DashboardSpinner'
-import type { CategoryParentOption, ProductDetail, ProductFormState } from './dashboardTypes'
+import type { CategoryParentOption, ManagedStoreOption, ProductDetail, ProductFormState } from './dashboardTypes'
 import {
   PRODUCT_FIELD_HINTS,
   countValidationIssues,
@@ -24,6 +24,11 @@ type DashboardProductFormModalProps = {
   hasProductChanges: boolean
   isProductSaving: boolean
   onSaveProduct: () => void
+  managedStores: ManagedStoreOption[]
+  isManagedStoresLoading: boolean
+  isAdminUser: boolean
+  toggleProductStoreId: (storeId: string) => void
+  onSelectAllStores: () => void
 }
 
 function inputBorderClass(hasError: boolean) {
@@ -46,6 +51,11 @@ export function DashboardProductFormModal({
   hasProductChanges,
   isProductSaving,
   onSaveProduct,
+  managedStores,
+  isManagedStoresLoading,
+  isAdminUser,
+  toggleProductStoreId,
+  onSelectAllStores,
 }: DashboardProductFormModalProps) {
   const [fieldTouched, setFieldTouched] = useState<Record<string, boolean>>({})
   const [attemptedSave, setAttemptedSave] = useState(false)
@@ -120,6 +130,71 @@ export function DashboardProductFormModal({
             >
               <FiX className="h-4 w-4" aria-hidden="true" />
             </button>
+          </div>
+
+          <div className="mb-4 space-y-2 border-b border-slate-100 pb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Stores</p>
+                <p className="text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.stores}</p>
+              </div>
+              {isAdminUser && managedStores.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={onSelectAllStores}
+                  className="text-left text-xs font-medium text-sky-700 hover:underline sm:text-right"
+                >
+                  Select all
+                </button>
+              ) : null}
+            </div>
+            {isManagedStoresLoading ? (
+              <div className="inline-flex items-center gap-2 text-sm text-slate-500">
+                <DashboardSpinner className="h-4 w-4" />
+                Loading stores…
+              </div>
+            ) : managedStores.length === 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                No stores available. Ask an admin to create stores and assign your account to a store.
+              </p>
+            ) : isAdminUser ? (
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/90 p-2">
+                {managedStores.map((m) => (
+                  <label
+                    key={m.id}
+                    className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1.5 text-sm transition hover:bg-white"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                      checked={productForm.storeIds.includes(m.id)}
+                      onChange={() => toggleProductStoreId(m.id)}
+                    />
+                    <span>
+                      <span className="font-medium text-slate-800">{m.name}</span>
+                      <span className="ml-1 text-xs text-slate-500">{m.slug}</span>
+                      {!m.isActive ? <span className="ml-2 text-xs text-amber-800">(inactive)</span> : null}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-1 rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-800">
+                {managedStores
+                  .filter((m) => productForm.storeIds.includes(m.id))
+                  .map((m) => (
+                    <li key={m.id}>
+                      <span className="font-medium">{m.name}</span>{' '}
+                      <span className="text-xs text-slate-500">({m.slug})</span>
+                    </li>
+                  ))}
+              </ul>
+            )}
+            {showFieldError('stores') ? (
+              <p className="text-xs text-rose-600" role="alert">
+                {validationErrors.stores}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

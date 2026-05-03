@@ -2,7 +2,13 @@ import type { Dispatch, SetStateAction } from 'react'
 
 import { DashboardProductDeleteModal } from './DashboardProductDeleteModal'
 import { DashboardProductFormModal } from './DashboardProductFormModal'
-import type { CategoryParentOption, ProductDetail, ProductFormState, ProductItem } from './dashboardTypes'
+import type {
+  CategoryParentOption,
+  ManagedStoreOption,
+  ProductDetail,
+  ProductFormState,
+  ProductItem,
+} from './dashboardTypes'
 
 type DashboardProductModalsProps = {
   isProductFormOpen: boolean
@@ -23,6 +29,11 @@ type DashboardProductModalsProps = {
   setConfirmDeleteProduct: (product: ProductItem | null) => void
   isProductDeleting: boolean
   onDeleteProduct: (product: ProductItem) => void
+  managedStores: ManagedStoreOption[]
+  isManagedStoresLoading: boolean
+  isAdminUser: boolean
+  toggleProductStoreId: (storeId: string) => void
+  onSelectAllStores: () => void
 }
 
 export function DashboardProductModals({
@@ -44,6 +55,11 @@ export function DashboardProductModals({
   setConfirmDeleteProduct,
   isProductDeleting,
   onDeleteProduct,
+  managedStores,
+  isManagedStoresLoading,
+  isAdminUser,
+  toggleProductStoreId,
+  onSelectAllStores,
 }: DashboardProductModalsProps) {
   return (
     <>
@@ -62,6 +78,11 @@ export function DashboardProductModals({
           hasProductChanges={hasProductChanges}
           isProductSaving={isProductSaving}
           onSaveProduct={onSaveProduct}
+          managedStores={managedStores}
+          isManagedStoresLoading={isManagedStoresLoading}
+          isAdminUser={isAdminUser}
+          toggleProductStoreId={toggleProductStoreId}
+          onSelectAllStores={onSelectAllStores}
         />
       )}
 

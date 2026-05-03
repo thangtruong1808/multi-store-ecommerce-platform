@@ -9,6 +9,8 @@ import type {
   DashboardFeatureKey,
   ProductItem,
   ProductsResponse,
+  StoreItem,
+  StoresResponse,
   UserItem,
   UsersResponse,
 } from './dashboardTypes'
@@ -17,11 +19,13 @@ type DashboardDataTableBodyProps = {
   activeFeature: DashboardFeatureKey
   currentItems: number
   isUsersLoading: boolean
+  isStoresLoading: boolean
   isCategoriesLoading: boolean
   isProductsLoading: boolean
   isActivityLogsLoading: boolean
   isFeatureLoading: boolean
   usersState: UsersResponse
+  storesState: StoresResponse
   categoriesState: CategoriesResponse
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
@@ -38,17 +42,24 @@ type DashboardDataTableBodyProps = {
   setConfirmDeleteProduct: (product: ProductItem | null) => void
   isProductDeleting: boolean
   deletingProductId: string | null
+  openEditStoreForm: (store: StoreItem) => void
+  setConfirmDeleteStore: (store: StoreItem | null) => void
+  isStoreDeleting: boolean
+  deletingStoreId: string | null
+  canMutateStores: boolean
 }
 
 export function DashboardDataTableBody({
   activeFeature,
   currentItems,
   isUsersLoading,
+  isStoresLoading,
   isCategoriesLoading,
   isProductsLoading,
   isActivityLogsLoading,
   isFeatureLoading,
   usersState,
+  storesState,
   categoriesState,
   productsState,
   activityLogsState,
@@ -65,10 +76,16 @@ export function DashboardDataTableBody({
   setConfirmDeleteProduct,
   isProductDeleting,
   deletingProductId,
+  openEditStoreForm,
+  setConfirmDeleteStore,
+  isStoreDeleting,
+  deletingStoreId,
+  canMutateStores,
 }: DashboardDataTableBodyProps) {
   return (
     <tbody className="divide-y divide-slate-100 bg-white">
       {(activeFeature === 'users' && isUsersLoading) ||
+      (activeFeature === 'stores' && isStoresLoading) ||
       (activeFeature === 'categories' && isCategoriesLoading) ||
       (activeFeature === 'products' && isProductsLoading) ||
       (activeFeature === 'activityLogs' && isActivityLogsLoading) ||
@@ -79,13 +96,15 @@ export function DashboardDataTableBody({
               <DashboardSpinner />
               {activeFeature === 'users'
                 ? 'Loading users...'
-                : activeFeature === 'categories'
-                  ? 'Loading categories...'
-                  : activeFeature === 'products'
-                    ? 'Loading products...'
-                    : activeFeature === 'activityLogs'
-                      ? 'Loading activity logs...'
-                      : 'Loading data...'}
+                : activeFeature === 'stores'
+                  ? 'Loading stores...'
+                  : activeFeature === 'categories'
+                    ? 'Loading categories...'
+                    : activeFeature === 'products'
+                      ? 'Loading products...'
+                      : activeFeature === 'activityLogs'
+                        ? 'Loading activity logs...'
+                        : 'Loading data...'}
             </div>
           </td>
         </tr>
@@ -126,6 +145,58 @@ export function DashboardDataTableBody({
                   Delete
                 </button>
               </div>
+            </td>
+          </tr>
+        ))
+      ) : activeFeature === 'stores' ? (
+        storesState.items.map((store) => (
+          <tr key={store.id} className="align-middle">
+            <td className="px-3 py-2.5">
+              <p className="font-medium text-slate-800">{store.name}</p>
+              {store.email ? <p className="text-xs text-slate-500">{store.email}</p> : null}
+            </td>
+            <td className="px-3 py-2.5 text-slate-700">{store.slug}</td>
+            <td className="px-3 py-2.5 text-slate-700">
+              <p className="text-xs">{store.timezone}</p>
+              <p className="text-xs text-slate-500">{store.defaultCurrencyCode}</p>
+            </td>
+            <td className="px-3 py-2.5">
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                  store.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                {store.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </td>
+            <td className="px-3 py-2.5">
+              {canMutateStores ? (
+                <div className="inline-flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditStoreForm(store)}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <FiEdit2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteStore(store)}
+                    disabled={!store.isActive || (isStoreDeleting && deletingStoreId === store.id)}
+                    className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {isStoreDeleting && deletingStoreId === store.id ? (
+                      <DashboardSpinner className="h-3 w-3" />
+                    ) : (
+                      <FiTrash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                    {isStoreDeleting && deletingStoreId === store.id ? '...' : 'Deactivate'}
+                  </button>
+                </div>
+              ) : (
+                <span className="text-xs text-slate-400">—</span>
+              )}
             </td>
           </tr>
         ))
@@ -252,6 +323,7 @@ export function DashboardDataTableBody({
       )}
 
       {!isUsersLoading &&
+        !isStoresLoading &&
         !isCategoriesLoading &&
         !isProductsLoading &&
         !isActivityLogsLoading &&
