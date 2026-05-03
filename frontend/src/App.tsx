@@ -15,24 +15,8 @@ import { LegacyShopCategoryRedirect } from './pages/categoryProducts/LegacyShopC
 import { LegacyShopSlugRedirect } from './pages/categoryProducts/LegacyShopSlugRedirect'
 import { AdminRoute, GuestOnlyRoute, ProtectedRoute } from './components/RouteGuards'
 import HomePage from './pages/home/HomePage'
-
-function ClearancePage() {
-  return (
-    <div className="mx-auto mt-8 max-w-3xl rounded-xl bg-white p-8 shadow">
-      <h1 className="text-3xl font-bold">Clearance</h1>
-      <p className="mt-3 text-base text-slate-600">Welcome to the Clearance page.</p>
-    </div>
-  )
-}
-
-function ContactPage() {
-  return (
-    <div className="mx-auto mt-8 max-w-3xl rounded-xl bg-white p-8 shadow">
-      <h1 className="text-3xl font-bold">Contact</h1>
-      <p className="mt-3 text-base text-slate-600">Welcome to the Contact page.</p>
-    </div>
-  )
-}
+import ClearancePage from './pages/ClearancePage'
+import ContactPage from './pages/ContactPage'
 
 function App() {
   const dispatch = useAppDispatch()

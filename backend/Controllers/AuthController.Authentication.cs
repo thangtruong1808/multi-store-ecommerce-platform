@@ -7,93 +7,131 @@ namespace backend.Controllers;
 
 public partial class AuthController
 {
+    // The HttpPost attribute is used to define a POST request endpoint.
+    // The RegisterRequest is a record that contains the user's first name, last name, email, password, and mobile.
     [HttpPost("register")]
+    // The Register method is used to register a new user.
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
+        // Get the user's first name, last name, email, password, and mobile from the request.
         var firstName = request.FirstName?.Trim() ?? string.Empty;
         var lastName = request.LastName?.Trim() ?? string.Empty;
         var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
         var password = request.Password?.Trim() ?? string.Empty;
         var mobile = request.Mobile?.Trim();
+        // Create a dictionary to store the registration errors.
         var registerErrors = new Dictionary<string, string>();
+        // If the first name is empty, set the first name error.
         if (string.IsNullOrWhiteSpace(firstName))
         {
             registerErrors["firstName"] = "First name is required.";
         }
+        // If the first name is less than 2 characters, set the first name error.
         else if (firstName.Length < 2)
         {
             registerErrors["firstName"] = "First name must be at least 2 characters.";
         }
 
+        // If the last name is empty, set the last name error.
         if (string.IsNullOrWhiteSpace(lastName))
         {
             registerErrors["lastName"] = "Last name is required.";
         }
+        // If the last name is less than 2 characters, set the last name error.
         else if (lastName.Length < 2)
         {
             registerErrors["lastName"] = "Last name must be at least 2 characters.";
         }
 
+        // If the email is empty, set the email error.
         if (string.IsNullOrWhiteSpace(email))
         {
             registerErrors["email"] = "Email is required.";
         }
+        // If the email does not contain an @, set the email error.
         else if (!email.Contains('@'))
         {
             registerErrors["email"] = "Email format is invalid.";
         }
 
+        // If the password is empty, set the password error.
         if (string.IsNullOrWhiteSpace(password))
         {
             registerErrors["password"] = "Password is required.";
         }
+        // If the password is less than 8 characters, set the password error.
         else if (password.Length < 8)
         {
             registerErrors["password"] = "Password must be at least 8 characters.";
         }
 
-        if (!string.IsNullOrWhiteSpace(mobile) && mobile.Length < 8)
+        // If the mobile is not empty and is less than 8 characters, set the mobile error.
+            if (!string.IsNullOrWhiteSpace(mobile) && mobile.Length < 8)
         {
             registerErrors["mobile"] = "Mobile must be at least 8 characters.";
         }
 
+        // If there are any errors, return a bad request response.
         if (registerErrors.Count > 0)
         {
             return BadRequest(new { message = "Validation failed.", errors = registerErrors });
         }
 
+        // Hash the password.
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        // Open a connection to the database.
         await using var conn = await _dataSource.OpenConnectionAsync();
+        // Ensure the customer role has the necessary permissions.
         await EnsureRolePermissionsAsync(conn, "customer");
+        // Create a command to insert the user into the database.
         await using var cmd = conn.CreateCommand();
+        // The CommandText property is used to define the SQL command to execute.
         cmd.CommandText = """
                           INSERT INTO app.users (role, first_name, last_name, email, password_hash, mobile, is_active)
                           VALUES (CAST('customer' AS app.user_role), @first_name, @last_name, @email, @password_hash, @mobile, TRUE)
                           RETURNING id, first_name, last_name, email, mobile, is_active, created_at;
                           """;
+        // The Parameters property is used to add parameters to the SQL command.
         cmd.Parameters.AddWithValue("first_name", firstName);
+        // The Parameters property is used to add parameters to the SQL command.
         cmd.Parameters.AddWithValue("last_name", lastName);
+        // The Parameters property is used to add parameters to the SQL command.
         cmd.Parameters.AddWithValue("email", email);
+        // The Parameters property is used to add parameters to the SQL command.
         cmd.Parameters.AddWithValue("password_hash", passwordHash);
+        // The Parameters property is used to add parameters to the SQL command.
         cmd.Parameters.AddWithValue("mobile", (object?)mobile ?? DBNull.Value);
 
         try
         {
+            // Execute the SQL command and return the result.
             await using var reader = await cmd.ExecuteReaderAsync();
+            // Read the result of the SQL command.
             await reader.ReadAsync();
+            // Get the created user ID from the result.
             var createdUserId = reader.GetGuid(0);
+            // Get the created user first name from the result.
             var createdFirstName = reader.GetString(1);
+            // Get the created user last name from the result.
             var createdLastName = reader.GetString(2);
+            // Get the created user email from the result.
             var createdEmail = reader.GetString(3);
+            // Get the created user mobile from the result.
             var createdMobile = reader.IsDBNull(4) ? null : reader.GetString(4);
+            // Get the created user is active from the result.
             var createdIsActive = reader.GetBoolean(5);
+            // Get the created user created at from the result.
             var createdAt = reader.GetDateTime(6);
+            // Dispose the reader.
             await reader.DisposeAsync();
+            // Write an audit log for the user registration.
             await WriteAuditLogAsync(conn, null, createdUserId, "user.registered", "user", createdUserId, new
             {
                 role = "customer",
                 email
             });
+            // Return a success response.
+            // The new object is used to return the created user data.
             return Ok(new
             {
                 id = createdUserId,
@@ -107,6 +145,7 @@ public partial class AuthController
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
+            // Return a conflict response.
             return Conflict(new
             {
                 message = "Email is already registered.",

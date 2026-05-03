@@ -323,7 +323,7 @@ public partial class ProductsController
         return Ok(new { items });
     }
 
-    /// <summary>Storefront home: active clearance products (recently marked), with URL slugs.</summary>
+    /// <summary>Active clearance products (recently marked), with URL slugs. Higher take cap than other spotlight lists for the dedicated /clearance page.</summary>
     [AllowAnonymous]
     [HttpGet("public/clearance")]
     public Task<IActionResult> ListPublicClearanceProducts([FromQuery] int take = 10)
@@ -334,7 +334,7 @@ public partial class ProductsController
               AND p.is_clearance = TRUE
             ORDER BY p.clearance_marked_at DESC NULLS LAST
             """,
-            Math.Clamp(take, 1, 24));
+            Math.Clamp(take, 1, 200));
 
     /// <summary>Storefront home: active refurbished products (recently marked), with URL slugs.</summary>
     [AllowAnonymous]

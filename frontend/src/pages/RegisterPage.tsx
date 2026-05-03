@@ -35,7 +35,9 @@ type RegisterForm = {
 function RegisterPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  // The useAppSelector hook is used to select the state from the store.
   const { isAuthenticated, actionLoading, error, fieldErrors } = useAppSelector((state) => state.auth)
+  // The useState hook is used to store the form data.
   const [formData, setFormData] = useState<RegisterForm>({
     firstName: '',
     lastName: '',
@@ -44,15 +46,20 @@ function RegisterPage() {
     mobile: '',
     confirmPassword: '',
   })
+  // The useState hook is used to store the client errors.
   const [clientErrors, setClientErrors] = useState<Record<string, string | undefined>>({})
 
+  // The useMemo hook is used to memoize the merged errors.
   const mergedErrors = useMemo(() => ({ ...fieldErrors, ...clientErrors }), [fieldErrors, clientErrors])
+  // The isSubmitting variable is used to store the submitting state.
   const isSubmitting = actionLoading
 
+  // If the user is authenticated, redirect to the home page.
   if (isAuthenticated) {
     return <Navigate to="/" replace />
   }
 
+  // The handleChange function is used to handle the change of the form data.
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
@@ -62,11 +69,14 @@ function RegisterPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // If the form is already submitting, return to avoid multiple submissions.
     if (isSubmitting) {
       return
     }
+    // Parse the form data using the Zod schema.
     const parsed = registerSchema.safeParse(formData)
     if (!parsed.success) {
+      // If the form data is invalid, set the client errors.
       const nextErrors: Record<string, string> = {}
       for (const issue of parsed.error.issues) {
         const pathKey = String(issue.path[0] ?? '')
@@ -75,9 +85,11 @@ function RegisterPage() {
         }
       }
       setClientErrors(nextErrors)
+      // Return to avoid further processing.
       return
     }
 
+    // Dispatch the register user action.
     const result = await dispatch(
       registerUser({
         firstName: parsed.data.firstName,
@@ -87,6 +99,8 @@ function RegisterPage() {
         mobile: parsed.data.mobile,
       }),
     )
+    // If the register user is successful, navigate to the home page.
+    // The registerUser.fulfilled.match function is used to check if the action is fulfilled.
     if (registerUser.fulfilled.match(result)) {
       navigate('/')
     }

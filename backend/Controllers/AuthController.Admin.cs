@@ -6,37 +6,50 @@ using NpgsqlTypes;
 
 namespace backend.Controllers;
 
+// The partial keyword allows you to split the definition of a class, record, or method across multiple files. This is useful for large projects where you want to organize your code into smaller, more manageable files.
 public partial class AuthController
 {
+    // The Authorize attribute is used to require authentication for the method.
     [Authorize]
+    // The HttpGet attribute is used to define a GET request endpoint.
     [HttpGet("permissions/me")]
     public async Task<IActionResult> GetMyEffectivePermissions()
     {
+        // Get the user ID from the JWT token
         var userIdRaw = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdRaw, out var userId))
         {
             return Unauthorized(new { message = "Invalid session token." });
         }
 
+        // Open a connection to the database
         await using var conn = await _dataSource.OpenConnectionAsync();
 
+        // Create a command to get the user's role
         await using var roleCmd = conn.CreateCommand();
+        // The CommandText property is used to define the SQL command to execute.
         roleCmd.CommandText = """
                               SELECT role::text
                               FROM app.users
                               WHERE id = @user_id
                               LIMIT 1;
                               """;
+        // The Parameters property is used to add parameters to the SQL command.
         roleCmd.Parameters.AddWithValue("user_id", userId);
+        // The ExecuteScalarAsync method is used to execute the SQL command and return the result.
         var roleResult = await roleCmd.ExecuteScalarAsync();
+        // If the user's role is not found, return an unauthorized error
         if (roleResult is not string role || string.IsNullOrWhiteSpace(role))
         {
             return Unauthorized(new { message = "User not found." });
         }
 
+        // Ensure the user has the necessary permissions
         await EnsureRolePermissionsAsync(conn, role);
 
+        // Create a command to get the user's permissions
         await using var permissionCmd = conn.CreateCommand();
+        // The CommandText property is used to define the SQL command to execute.
         permissionCmd.CommandText = """
                                     SELECT p.code
                                     FROM app.role_permissions rp
@@ -44,15 +57,20 @@ public partial class AuthController
                                     WHERE rp.role = CAST(@role AS app.user_role)
                                     ORDER BY p.code;
                                     """;
+        // The Parameters property is used to add parameters to the SQL command.
         permissionCmd.Parameters.AddWithValue("role", role);
-
+        // The ExecuteReaderAsync method is used to execute the SQL command and return the result.
+        // The reader is used to read the result of the SQL command.
         await using var reader = await permissionCmd.ExecuteReaderAsync();
+        // Create a list to store the user's permissions
         var permissions = new List<string>();
+        // Read the permissions from the result
         while (await reader.ReadAsync())
         {
             permissions.Add(reader.GetString(0));
         }
 
+        // Return the user's permissions
         return Ok(new
         {
             userId,
@@ -65,23 +83,30 @@ public partial class AuthController
     [HttpGet("users")]
     public async Task<IActionResult> ListUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
+        // Get the current user's role
         var currentUserRole = await GetCurrentUserRoleAsync();
         if (!CanAccessDashboard(currentUserRole))
         {
             return Forbid();
         }
 
+        // Calculate the offset and limit
         var safePage = Math.Max(1, page);
         var safePageSize = Math.Clamp(pageSize, 5, 50);
         var offset = (safePage - 1) * safePageSize;
 
+        // Open a connection to the database
         await using var conn = await _dataSource.OpenConnectionAsync();
+        // Create a command to count the total number of users
 
         await using var countCmd = conn.CreateCommand();
+        // The CommandText property is used to define the SQL command to execute.
         countCmd.CommandText = "SELECT COUNT(*) FROM app.users;";
+        // The ExecuteScalarAsync method is used to execute the SQL command and return the result.
         var totalItems = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 
         await using var cmd = conn.CreateCommand();
+        // The CommandText property is used to define the SQL command to execute.
         cmd.CommandText = """
                           SELECT
                               id,
@@ -96,14 +121,19 @@ public partial class AuthController
                           ORDER BY created_at DESC
                           LIMIT @limit OFFSET @offset;
                           """;
+        // The Parameters property is used to add parameters to the SQL command.
         cmd.Parameters.AddWithValue("limit", safePageSize);
         cmd.Parameters.AddWithValue("offset", offset);
 
         await using var reader = await cmd.ExecuteReaderAsync();
+        // Create a list to store the users
         var items = new List<object>();
+        // Read the users from the result
+        // The reader is used to read the result of the SQL command.
         while (await reader.ReadAsync())
         {
             items.Add(new
+            // Create a new user object
             {
                 id = reader.GetGuid(0),
                 role = reader.GetString(1),
@@ -116,6 +146,7 @@ public partial class AuthController
             });
         }
 
+        // Return the users
         return Ok(new
         {
             items,
@@ -130,12 +161,14 @@ public partial class AuthController
     [HttpGet("activity-logs")]
     public async Task<IActionResult> ListActivityLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
+        // Get the current user's role
         var currentUserRole = await GetCurrentUserRoleAsync();
         if (!CanAccessDashboard(currentUserRole))
         {
             return Forbid();
         }
 
+        // Calculate the offset and limit
         var safePage = Math.Max(1, page);
         var safePageSize = Math.Clamp(pageSize, 5, 50);
         var offset = (safePage - 1) * safePageSize;

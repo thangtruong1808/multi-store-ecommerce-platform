@@ -7,5 +7,7 @@ export const store = configureStore({
   },
 })
 
+// The ReturnType<typeof store.getState> function is used to get the type of the root state.
 export type RootState = ReturnType<typeof store.getState>
+// The AppDispatch type is used to dispatch actions to the store.
 export type AppDispatch = typeof store.dispatch
