@@ -27,7 +27,9 @@ public class ProductsController : ControllerBase
         string Status,
         Guid CategoryId,
         string[]? ImageS3Keys,
-        string[]? VideoUrls
+        string[]? VideoUrls,
+        bool IsClearance = false,
+        bool IsRefurbished = false
     );
 
     [AllowAnonymous]
@@ -338,6 +340,167 @@ public class ProductsController : ControllerBase
         return Ok(new { items });
     }
 
+    /// <summary>Storefront home: active clearance products (recently marked), with URL slugs.</summary>
+    [AllowAnonymous]
+    [HttpGet("public/clearance")]
+    public Task<IActionResult> ListPublicClearanceProducts([FromQuery] int take = 10)
+        => ListPublicSpotlightProductsCoreAsync(
+            """
+            WHERE lower(p.status) = 'active'
+              AND p.category_id IS NOT NULL
+              AND p.is_clearance = TRUE
+            ORDER BY p.clearance_marked_at DESC NULLS LAST
+            """,
+            Math.Clamp(take, 1, 24));
+
+    /// <summary>Storefront home: active refurbished products (recently marked), with URL slugs.</summary>
+    [AllowAnonymous]
+    [HttpGet("public/refurbished")]
+    public Task<IActionResult> ListPublicRefurbishedProducts([FromQuery] int take = 10)
+        => ListPublicSpotlightProductsCoreAsync(
+            """
+            WHERE lower(p.status) = 'active'
+              AND p.category_id IS NOT NULL
+              AND p.is_refurbished = TRUE
+            ORDER BY p.refurbished_marked_at DESC NULLS LAST
+            """,
+            Math.Clamp(take, 1, 24));
+
+    /// <summary>Storefront home: newest active products, with URL slugs.</summary>
+    [AllowAnonymous]
+    [HttpGet("public/new-arrivals")]
+    public Task<IActionResult> ListPublicNewArrivalProducts([FromQuery] int take = 10)
+        => ListPublicSpotlightProductsCoreAsync(
+            """
+            WHERE lower(p.status) = 'active'
+              AND p.category_id IS NOT NULL
+            ORDER BY p.created_at DESC
+            """,
+            Math.Clamp(take, 1, 24));
+
+    /// <summary>Storefront home: top sellers by shipped quantity; ties and zero-sales fall back to newest active.</summary>
+    [AllowAnonymous]
+    [HttpGet("public/top-selling")]
+    public Task<IActionResult> ListPublicTopSellingProducts([FromQuery] int take = 10)
+        => ListPublicTopSellingProductsCoreAsync(Math.Clamp(take, 1, 24));
+
+    private async Task<IActionResult> ListPublicSpotlightProductsCoreAsync(string whereOrderSql, int safeTake)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"""
+                           SELECT
+                               p.id,
+                               p.sku,
+                               p.name,
+                               p.base_price,
+                               c.name AS category_name,
+                               (SELECT x.slug
+                                FROM (
+                                         WITH RECURSIVE anc AS (
+                                             SELECT id, parent_id, slug, level
+                                             FROM app.categories
+                                             WHERE id = p.category_id
+                                             UNION ALL
+                                             SELECT cat.id, cat.parent_id, cat.slug, cat.level
+                                             FROM app.categories cat
+                                                      INNER JOIN anc a ON cat.id = a.parent_id
+                                         )
+                                         SELECT slug, level
+                                         FROM anc
+                                     ) x
+                                WHERE x.level = 1
+                                LIMIT 1) AS level1_slug,
+                               leaf.slug AS category_slug
+                           FROM app.products p
+                                    LEFT JOIN app.categories c ON c.id = p.category_id
+                                    LEFT JOIN app.categories leaf ON leaf.id = p.category_id
+                           {whereOrderSql}
+                           LIMIT @take;
+                           """;
+        cmd.Parameters.AddWithValue("take", safeTake);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var items = new List<object>();
+        while (await reader.ReadAsync())
+        {
+            items.Add(MapSpotlightProductRow(reader));
+        }
+
+        return Ok(new { items });
+    }
+
+    private async Task<IActionResult> ListPublicTopSellingProductsCoreAsync(int safeTake)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          WITH sales AS (
+                              SELECT oi.product_id,
+                                     SUM(oi.quantity)::BIGINT AS units
+                              FROM app.order_items oi
+                                       INNER JOIN app.orders o ON o.id = oi.order_id
+                              WHERE o.status IN ('paid', 'processing', 'shipped', 'completed', 'refunded')
+                                AND oi.product_id IS NOT NULL
+                              GROUP BY oi.product_id
+                          )
+                          SELECT p.id,
+                                 p.sku,
+                                 p.name,
+                                 p.base_price,
+                                 c.name AS category_name,
+                                 (SELECT x.slug
+                                  FROM (
+                                           WITH RECURSIVE anc AS (
+                                               SELECT id, parent_id, slug, level
+                                               FROM app.categories
+                                               WHERE id = p.category_id
+                                               UNION ALL
+                                               SELECT cat.id, cat.parent_id, cat.slug, cat.level
+                                               FROM app.categories cat
+                                                        INNER JOIN anc a ON cat.id = a.parent_id
+                                           )
+                                           SELECT slug, level
+                                           FROM anc
+                                       ) x
+                                  WHERE x.level = 1
+                                  LIMIT 1) AS level1_slug,
+                                 leaf.slug AS category_slug
+                          FROM app.products p
+                                   LEFT JOIN app.categories c ON c.id = p.category_id
+                                   LEFT JOIN app.categories leaf ON leaf.id = p.category_id
+                                   LEFT JOIN sales s ON s.product_id = p.id
+                          WHERE lower(p.status) = 'active'
+                            AND p.category_id IS NOT NULL
+                          ORDER BY COALESCE(s.units, 0) DESC, p.created_at DESC
+                          LIMIT @take;
+                          """;
+        cmd.Parameters.AddWithValue("take", safeTake);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        var items = new List<object>();
+        while (await reader.ReadAsync())
+        {
+            items.Add(MapSpotlightProductRow(reader));
+        }
+
+        return Ok(new { items });
+    }
+
+    private static object MapSpotlightProductRow(NpgsqlDataReader reader)
+    {
+        return new
+        {
+            id = reader.GetGuid(0),
+            sku = reader.GetString(1),
+            name = reader.GetString(2),
+            basePrice = reader.GetDecimal(3),
+            categoryName = reader.IsDBNull(4) ? null : reader.GetString(4),
+            level1Slug = reader.IsDBNull(5) ? null : reader.GetString(5),
+            categorySlug = reader.IsDBNull(6) ? null : reader.GetString(6),
+        };
+    }
+
     /// <summary>
     /// Walks ancestors from every row matching <paramref name="categorySlug"/>;
     /// keeps leaf ids whose chain includes level 1 with <paramref name="level1Slug"/>.
@@ -613,7 +776,9 @@ public class ProductsController : ControllerBase
                               p.category_id,
                               c.name AS category_name,
                               p.created_at,
-                              p.updated_at
+                              p.updated_at,
+                              p.is_clearance,
+                              p.is_refurbished
                           FROM app.products p
                           LEFT JOIN app.categories c ON c.id = p.category_id
                           WHERE p.id = @id
@@ -637,6 +802,8 @@ public class ProductsController : ControllerBase
         var categoryName = reader.IsDBNull(7) ? null : reader.GetString(7);
         var createdAt = reader.GetDateTime(8);
         var updatedAt = reader.GetDateTime(9);
+        var isClearance = reader.GetBoolean(10);
+        var isRefurbished = reader.GetBoolean(11);
         await reader.DisposeAsync();
 
         var imageS3Keys = await GetProductImagesAsync(conn, productId);
@@ -657,6 +824,8 @@ public class ProductsController : ControllerBase
             categoryName,
             createdAt,
             updatedAt,
+            isClearance,
+            isRefurbished,
             imageS3Keys,
             videoUrls
         });
@@ -722,8 +891,8 @@ public class ProductsController : ControllerBase
             await using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = """
-                              INSERT INTO app.products (sku, name, description, base_price, status, category_id, created_by)
-                              VALUES (@sku, @name, @description, @base_price, @status, @category_id, @created_by)
+                              INSERT INTO app.products (sku, name, description, base_price, status, category_id, created_by, is_clearance, clearance_marked_at, is_refurbished, refurbished_marked_at)
+                              VALUES (@sku, @name, @description, @base_price, @status, @category_id, @created_by, @is_clearance, CASE WHEN @is_clearance THEN NOW() ELSE NULL END, @is_refurbished, CASE WHEN @is_refurbished THEN NOW() ELSE NULL END)
                               RETURNING id, created_at, updated_at;
                               """;
             cmd.Parameters.AddWithValue("sku", normalized.Sku);
@@ -733,6 +902,8 @@ public class ProductsController : ControllerBase
             cmd.Parameters.AddWithValue("status", normalized.Status);
             cmd.Parameters.AddWithValue("category_id", normalized.CategoryId);
             cmd.Parameters.AddWithValue("created_by", (object?)actorUserId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("is_clearance", normalized.IsClearance);
+            cmd.Parameters.AddWithValue("is_refurbished", normalized.IsRefurbished);
 
             await using var reader = await cmd.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
@@ -770,6 +941,8 @@ public class ProductsController : ControllerBase
                 basePrice = normalized.BasePrice,
                 status = normalized.Status,
                 categoryId = normalized.CategoryId,
+                isClearance = normalized.IsClearance,
+                isRefurbished = normalized.IsRefurbished,
                 imageS3Keys = normalized.ImageS3Keys,
                 videoUrls = normalized.VideoUrls,
                 createdAt,
@@ -821,6 +994,18 @@ public class ProductsController : ControllerBase
                                   base_price = @base_price,
                                   status = @status,
                                   category_id = @category_id,
+                                  is_clearance = @is_clearance,
+                                  clearance_marked_at = CASE
+                                      WHEN NOT @is_clearance THEN NULL
+                                      WHEN is_clearance THEN clearance_marked_at
+                                      ELSE NOW()
+                                  END,
+                                  is_refurbished = @is_refurbished,
+                                  refurbished_marked_at = CASE
+                                      WHEN NOT @is_refurbished THEN NULL
+                                      WHEN is_refurbished THEN refurbished_marked_at
+                                      ELSE NOW()
+                                  END,
                                   updated_at = NOW()
                               WHERE id = @id
                               RETURNING created_at, updated_at;
@@ -832,6 +1017,8 @@ public class ProductsController : ControllerBase
             cmd.Parameters.AddWithValue("base_price", normalized.BasePrice);
             cmd.Parameters.AddWithValue("status", normalized.Status);
             cmd.Parameters.AddWithValue("category_id", normalized.CategoryId);
+            cmd.Parameters.AddWithValue("is_clearance", normalized.IsClearance);
+            cmd.Parameters.AddWithValue("is_refurbished", normalized.IsRefurbished);
 
             await using var reader = await cmd.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
@@ -868,6 +1055,8 @@ public class ProductsController : ControllerBase
                 basePrice = normalized.BasePrice,
                 status = normalized.Status,
                 categoryId = normalized.CategoryId,
+                isClearance = normalized.IsClearance,
+                isRefurbished = normalized.IsRefurbished,
                 imageS3Keys = normalized.ImageS3Keys,
                 videoUrls = normalized.VideoUrls,
                 createdAt,
@@ -959,7 +1148,7 @@ public class ProductsController : ControllerBase
         return Guid.TryParse(userIdRaw, out var userId) ? userId : null;
     }
 
-    private async Task<(Dictionary<string, string> Errors, string Sku, string Name, string? Description, decimal BasePrice, string Status, Guid CategoryId, List<string> ImageS3Keys, List<string> VideoUrls)> ValidateAndNormalizeAsync(UpsertProductRequest request)
+    private async Task<(Dictionary<string, string> Errors, string Sku, string Name, string? Description, decimal BasePrice, string Status, Guid CategoryId, List<string> ImageS3Keys, List<string> VideoUrls, bool IsClearance, bool IsRefurbished)> ValidateAndNormalizeAsync(UpsertProductRequest request)
     {
         var errors = new Dictionary<string, string>();
         var sku = (request.Sku ?? string.Empty).Trim().ToUpperInvariant();
@@ -1022,7 +1211,7 @@ public class ProductsController : ControllerBase
             }
         }
 
-        return (errors, sku, name, description, request.BasePrice, status, request.CategoryId, imageS3Keys, videoUrls);
+        return (errors, sku, name, description, request.BasePrice, status, request.CategoryId, imageS3Keys, videoUrls, request.IsClearance, request.IsRefurbished);
     }
 
     private static bool IsValidProductStatus(string status)

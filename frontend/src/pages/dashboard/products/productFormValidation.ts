@@ -8,6 +8,8 @@ export const PRODUCT_FIELD_HINTS = {
     'Optional. Use one line per detail—features, materials, dimensions, warranty—each line can be shown as its own bullet on the storefront.',
   basePrice: 'Use dot as decimal separator (e.g. 19.99). Must be zero or greater.',
   status: 'active = visible to shoppers when catalog rules allow; inactive/draft for hiding or work-in-progress.',
+  clearance: 'When checked, this product can appear in clearance storefront sections.',
+  refurbished: 'When checked, this product can appear in refurbished storefront sections.',
   category: 'Choose Level 1, then Level 2, then Level 3. Products must sit under a Level 3 category.',
   images: 'Up to 4 optional image keys (storage paths after upload). Leave blank rows out or remove them.',
   videos: 'Optional. Each line must be a full URL starting with https:// or http://',

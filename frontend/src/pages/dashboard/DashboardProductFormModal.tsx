@@ -270,6 +270,42 @@ export function DashboardProductFormModal({
               </select>
             </div>
 
+            <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/90 p-3 sm:col-span-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Storefront highlights</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-2">
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={productForm.isClearance}
+                    disabled={isProductSaving}
+                    onChange={(event) =>
+                      setProductForm((prev) => ({ ...prev, isClearance: event.target.checked }))
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="min-w-0">
+                    <span className="text-sm font-medium text-slate-800">Clearance</span>
+                    <p className="mt-0.5 text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.clearance}</p>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={productForm.isRefurbished}
+                    disabled={isProductSaving}
+                    onChange={(event) =>
+                      setProductForm((prev) => ({ ...prev, isRefurbished: event.target.checked }))
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="min-w-0">
+                    <span className="text-sm font-medium text-slate-800">Refurbished</span>
+                    <p className="mt-0.5 text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.refurbished}</p>
+                  </span>
+                </label>
+              </div>
+            </div>
+
             <div
               className={`rounded-lg border bg-slate-50 p-3 sm:col-span-2 ${showFieldError('category') ? 'border-rose-300' : 'border-slate-200'}`}
             >

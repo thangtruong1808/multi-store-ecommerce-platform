@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../../../features/auth/authConstants'
 import { executeProductSoftDelete } from '../products/executeProductDelete'
 import { executeProductUpsert } from '../products/executeProductUpsert'
 import { fetchWithAutoRefresh } from '../fetchDashboardApi'
+import { computeHasProductChanges } from '../dashboardDerivedFlags'
 import type {
   CategoryParentOption,
   DashboardFeatureKey,
@@ -39,6 +40,8 @@ export function useDashboardProductsForm(
     description: '',
     basePrice: '',
     status: 'active',
+    isClearance: false,
+    isRefurbished: false,
     level1Id: 'none',
     level2Id: 'none',
     level3Id: 'none',
@@ -57,6 +60,8 @@ export function useDashboardProductsForm(
         description: '',
         basePrice: '',
         status: 'active',
+        isClearance: false,
+        isRefurbished: false,
         level1Id: 'none',
         level2Id: 'none',
         level3Id: 'none',
@@ -83,6 +88,8 @@ export function useDashboardProductsForm(
       description: '',
       basePrice: '',
       status: 'active',
+      isClearance: false,
+      isRefurbished: false,
       level1Id: 'none',
       level2Id: 'none',
       level3Id: 'none',
@@ -126,6 +133,8 @@ export function useDashboardProductsForm(
         description: detail.description ?? '',
         basePrice: String(detail.basePrice),
         status: detail.status,
+        isClearance: Boolean(detail.isClearance),
+        isRefurbished: Boolean(detail.isRefurbished),
         level1Id: level1?.id ?? 'none',
         level2Id: level2?.id ?? 'none',
         level3Id: level3?.id ?? 'none',
@@ -153,22 +162,7 @@ export function useDashboardProductsForm(
   }
 
   const handleSaveProduct = async () => {
-    const hasProductChanges =
-      editingProduct === null
-        ? productForm.sku.trim().length > 0 &&
-          productForm.name.trim().length > 0 &&
-          productForm.basePrice.trim().length > 0 &&
-          productForm.level3Id !== 'none'
-        : productForm.sku.trim().toUpperCase() !== editingProduct.sku ||
-          productForm.name.trim() !== editingProduct.name ||
-          productForm.description.trim() !== (editingProduct.description ?? '') ||
-          Number(productForm.basePrice || 0) !== Number(editingProduct.basePrice) ||
-          productForm.status !== editingProduct.status ||
-          productForm.level3Id !== (editingProduct.categoryId ?? 'none') ||
-          productForm.imageS3Keys.filter((item) => item.trim().length > 0).join('|') !==
-            editingProduct.imageS3Keys.join('|') ||
-          productForm.videoUrls.filter((item) => item.trim().length > 0).join('|') !== editingProduct.videoUrls.join('|')
-
+    const hasProductChanges = computeHasProductChanges(editingProduct, productForm)
     if (!hasProductChanges) return
 
     setIsProductSaving(true)

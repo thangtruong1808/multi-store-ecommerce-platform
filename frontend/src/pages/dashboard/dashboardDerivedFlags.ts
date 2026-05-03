@@ -46,6 +46,8 @@ export function computeHasProductChanges(editingProduct: ProductDetail | null, p
     productForm.description.trim() !== (editingProduct.description ?? '') ||
     Number(productForm.basePrice || 0) !== Number(editingProduct.basePrice) ||
     productForm.status !== editingProduct.status ||
+    productForm.isClearance !== Boolean(editingProduct.isClearance) ||
+    productForm.isRefurbished !== Boolean(editingProduct.isRefurbished) ||
     productForm.level3Id !== (editingProduct.categoryId ?? 'none') ||
     productForm.imageS3Keys.filter((item) => item.trim().length > 0).join('|') !== editingProduct.imageS3Keys.join('|') ||
     productForm.videoUrls.filter((item) => item.trim().length > 0).join('|') !== editingProduct.videoUrls.join('|')

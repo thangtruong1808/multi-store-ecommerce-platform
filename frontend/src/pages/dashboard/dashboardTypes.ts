@@ -90,6 +90,10 @@ export type ProductItem = {
   videoCount: number
   createdAt: string
   updatedAt: string
+  /** Present when loaded from product detail / upsert response; list endpoint may omit. */
+  isClearance?: boolean
+  /** Present when loaded from product detail / upsert response; list endpoint may omit. */
+  isRefurbished?: boolean
 }
 
 export type ProductDetail = ProductItem & {
@@ -111,6 +115,8 @@ export type ProductFormState = {
   description: string
   basePrice: string
   status: 'active' | 'inactive' | 'draft'
+  isClearance: boolean
+  isRefurbished: boolean
   level1Id: 'none' | string
   level2Id: 'none' | string
   level3Id: 'none' | string

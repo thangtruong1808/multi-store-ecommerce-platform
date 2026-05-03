@@ -67,6 +67,8 @@ export async function executeProductUpsert(opts: UpsertOpts): Promise<void> {
     basePrice: Number(productForm.basePrice || 0),
     status: productForm.status,
     categoryId: productForm.level3Id,
+    isClearance: productForm.isClearance,
+    isRefurbished: productForm.isRefurbished,
     imageS3Keys: productForm.imageS3Keys.map((item) => item.trim()).filter((item) => item.length > 0),
     videoUrls: productForm.videoUrls.map((item) => item.trim()).filter((item) => item.length > 0),
   }
