@@ -174,12 +174,12 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100/90 via-white to-slate-50/90">
-      <div className="mx-auto w-full max-w-[min(100%,120rem)] px-4 md:px-6 xl:px-8">
-        <main className="mx-auto w-full max-w-7xl py-6 md:py-10">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-gradient-to-b from-slate-100/90 via-white to-slate-50/90">
+      <div className="mx-auto min-w-0 w-full max-w-[min(100%,120rem)] px-4 md:px-6 xl:px-8">
+        <main className="mx-auto min-w-0 w-full max-w-7xl py-6 md:py-10">
           <h1 className="sr-only">Home</h1>
 
-          <div className="flex flex-col gap-8 md:gap-10">
+          <div className="flex min-w-0 flex-col gap-8 md:gap-10">
             <HomeCarouselSection
               title="Discover our categories"
               subtitle="Start from a top-level department, then narrow down as you shop."

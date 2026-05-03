@@ -45,7 +45,7 @@ export function HomeProductCard({ product }: HomeProductCardProps) {
 
   if (!hasPath) {
     return (
-      <div className="flex h-full min-h-[280px] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white opacity-80 shadow-sm">
+      <div className="flex h-full min-h-[280px] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white opacity-80 shadow-sm">
         {cardBody}
       </div>
     )
@@ -55,7 +55,7 @@ export function HomeProductCard({ product }: HomeProductCardProps) {
     <NavLink
       to={to}
       className={({ isPending }) =>
-        `group flex h-full min-h-[280px] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm outline-none ring-sky-500/40 transition duration-200 focus-visible:ring-2 ${
+        `group flex h-full min-h-[280px] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm outline-none ring-sky-500/40 transition duration-200 focus-visible:ring-2 ${
           isPending
             ? 'pointer-events-none border-sky-200 opacity-90'
             : 'hover:-translate-y-0.5 hover:border-sky-200/80 hover:shadow-lg active:translate-y-0'

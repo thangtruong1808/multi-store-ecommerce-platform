@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { FiAlertCircle, FiInbox } from 'react-icons/fi'
 import { HomeCarousel } from './HomeCarousel'
+import { HOME_CAROUSEL_SLIDE_CLASS } from './homeCarouselSlideClasses'
 
 type HomeCarouselSectionProps = {
   /** Visible heading (also drives sr-only context). */
@@ -35,24 +36,29 @@ export function HomeCarouselSection({
 }: HomeCarouselSectionProps) {
   return (
     <section
-      className="rounded-2xl border border-slate-200/70 bg-white/75 p-4 shadow-sm ring-1 ring-slate-900/[0.04] backdrop-blur-sm sm:p-5 md:p-6"
+      className="min-w-0 w-full max-w-full rounded-2xl border border-slate-200/70 bg-white/75 p-4 shadow-sm ring-1 ring-slate-900/[0.04] backdrop-blur-sm sm:p-5 md:p-6"
       aria-labelledby={sectionId}
     >
-      <div className="space-y-5">
+      <div className="min-w-0 space-y-5">
         <header className="space-y-2 border-b border-slate-100 pb-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-            <div className="min-w-0 space-y-1">
-              <div className="flex items-center gap-3">
+            <div className="min-w-0 max-w-full space-y-1">
+              <div className="flex min-w-0 items-center gap-3">
                 <span
                   className="hidden h-8 w-1 shrink-0 rounded-full bg-gradient-to-b from-sky-500 to-indigo-500 sm:block"
                   aria-hidden="true"
                 />
-                <h2 id={sectionId} className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+                <h2
+                  id={sectionId}
+                  className="min-w-0 break-words text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl"
+                >
                   {title}
                 </h2>
               </div>
               {subtitle ? (
-                <p className="max-w-prose pl-0 text-sm leading-relaxed text-slate-600 sm:pl-4">{subtitle}</p>
+                <p className="max-w-prose break-words pl-0 text-sm leading-relaxed text-slate-600 sm:pl-4">
+                  {subtitle}
+                </p>
               ) : null}
             </div>
           </div>
@@ -69,7 +75,7 @@ export function HomeCarouselSection({
         ) : null}
 
         {!error && isLoading ? (
-          <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-pl-3 scroll-pr-3 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-4 sm:scroll-pl-4 sm:scroll-pr-4 [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-0 w-full max-w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-10 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-4 sm:px-8 [&::-webkit-scrollbar]:hidden">
             {skeleton}
           </div>
         ) : null}
@@ -92,9 +98,11 @@ export function HomeCarouselSection({
 function HomeCarouselSkeletonCard({ tall }: { tall?: boolean }) {
   return (
     <div
-      className={`w-[min(85vw,20rem)] shrink-0 snap-start animate-pulse sm:w-[calc((100%-1rem)/2)] md:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-3rem)/4)] xl:w-[calc((100%-4rem)/5)] ${tall ? 'min-h-[280px]' : 'min-h-[220px]'}`}
+      className={`${HOME_CAROUSEL_SLIDE_CLASS} animate-pulse ${tall ? 'min-h-[280px]' : 'min-h-[220px]'}`}
     >
-      <div className={`flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white ${tall ? 'min-h-[280px]' : 'min-h-[220px]'}`}>
+      <div
+        className={`flex w-full min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white ${tall ? 'min-h-[280px]' : 'min-h-[220px]'}`}
+      >
         <div className="aspect-[5/3] w-full bg-slate-200" />
         <div className="space-y-2 p-4">
           <div className="h-4 rounded bg-slate-200" />
