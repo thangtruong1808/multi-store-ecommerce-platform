@@ -34,6 +34,7 @@ type DashboardProductModalsProps = {
   isAdminUser: boolean
   toggleProductStoreId: (storeId: string) => void
   onSelectAllStores: () => void
+  onStoreQuantityChange: (storeId: string, value: string) => void
 }
 
 export function DashboardProductModals({
@@ -60,6 +61,7 @@ export function DashboardProductModals({
   isAdminUser,
   toggleProductStoreId,
   onSelectAllStores,
+  onStoreQuantityChange,
 }: DashboardProductModalsProps) {
   return (
     <>
@@ -83,6 +85,7 @@ export function DashboardProductModals({
           isAdminUser={isAdminUser}
           toggleProductStoreId={toggleProductStoreId}
           onSelectAllStores={onSelectAllStores}
+          onStoreQuantityChange={onStoreQuantityChange}
         />
       )}
 

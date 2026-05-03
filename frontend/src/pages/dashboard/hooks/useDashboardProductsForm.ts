@@ -22,6 +22,16 @@ type ProductsListSlice = {
   productCategoriesTree: CategoryParentOption[]
 }
 
+function storeQuantitiesForIds(storeIds: string[], detail: ProductDetail | null): Record<string, string> {
+  const stock = detail?.storeStock ?? []
+  const out: Record<string, string> = {}
+  for (const id of storeIds) {
+    const row = stock.find((s) => s.storeId === id)
+    out[id] = String(row?.quantity ?? 0)
+  }
+  return out
+}
+
 export function useDashboardProductsForm(
   activeFeature: DashboardFeatureKey,
   pageSize: number,
@@ -53,6 +63,7 @@ export function useDashboardProductsForm(
     imageS3Keys: [],
     videoUrls: [],
     storeIds: [],
+    storeQuantities: {},
   })
 
   const [managedStores, setManagedStores] = useState<ManagedStoreOption[]>([])
@@ -104,6 +115,7 @@ export function useDashboardProductsForm(
         imageS3Keys: [],
         videoUrls: [],
         storeIds: [],
+        storeQuantities: {},
       })
     }
   }, [activeFeature])
@@ -133,6 +145,7 @@ export function useDashboardProductsForm(
       imageS3Keys: [],
       videoUrls: [],
       storeIds: [],
+      storeQuantities: {},
     })
   }
 
@@ -161,22 +174,43 @@ export function useDashboardProductsForm(
       imageS3Keys: [],
       videoUrls: [],
       storeIds: defaultStoreIds,
+      storeQuantities: storeQuantitiesForIds(defaultStoreIds, null),
     })
   }
 
   const toggleProductStoreId = (storeId: string) => {
     setProductForm((prev) => {
       const set = new Set(prev.storeIds)
-      if (set.has(storeId)) set.delete(storeId)
-      else set.add(storeId)
-      return { ...prev, storeIds: [...set] }
+      const nextQs = { ...prev.storeQuantities }
+      if (set.has(storeId)) {
+        set.delete(storeId)
+        delete nextQs[storeId]
+      } else {
+        set.add(storeId)
+        nextQs[storeId] = nextQs[storeId] ?? '0'
+      }
+      return { ...prev, storeIds: [...set], storeQuantities: nextQs }
     })
   }
 
   const selectAllManagedStores = () => {
+    setProductForm((prev) => {
+      const ids = managedStores.map((m) => m.id)
+      const nextQs = { ...prev.storeQuantities }
+      ids.forEach((id) => {
+        if (nextQs[id] === undefined) nextQs[id] = '0'
+      })
+      Object.keys(nextQs).forEach((k) => {
+        if (!ids.includes(k)) delete nextQs[k]
+      })
+      return { ...prev, storeIds: ids, storeQuantities: nextQs }
+    })
+  }
+
+  const setProductStoreQuantity = (storeId: string, value: string) => {
     setProductForm((prev) => ({
       ...prev,
-      storeIds: managedStores.map((m) => m.id),
+      storeQuantities: { ...prev.storeQuantities, [storeId]: value },
     }))
   }
 
@@ -196,6 +230,7 @@ export function useDashboardProductsForm(
 
       setEditingProduct(detail)
       setIsProductFormOpen(true)
+      const ids = (detail.storeIds ?? []).map(String)
       setProductForm({
         sku: detail.sku,
         name: detail.name,
@@ -209,7 +244,8 @@ export function useDashboardProductsForm(
         level3Id: level3?.id ?? 'none',
         imageS3Keys: detail.imageS3Keys,
         videoUrls: detail.videoUrls,
-        storeIds: (detail.storeIds ?? []).map(String),
+        storeIds: ids,
+        storeQuantities: storeQuantitiesForIds(ids, detail),
       })
     } catch (error) {
       setInlineStatusType('error')
@@ -300,6 +336,7 @@ export function useDashboardProductsForm(
     isAdminUser,
     toggleProductStoreId,
     selectAllManagedStores,
+    setProductStoreQuantity,
     closeProductForm,
     openCreateProductForm,
     openEditProductForm,

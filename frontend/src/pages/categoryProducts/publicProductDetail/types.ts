@@ -8,6 +8,8 @@ export type PublicProductDetail = {
   categoryName?: string | null
   imageS3Keys: string[]
   videoUrls: string[]
+  /** Aggregated sellable units across visible, active stores */
+  availableQuantity?: number
 }
 
 export type RelatedProductItem = {

@@ -12,6 +12,7 @@ export const PRODUCT_FIELD_HINTS = {
   refurbished: 'When checked, this product can appear in refurbished storefront sections.',
   category: 'Choose Level 1, then Level 2, then Level 3. Products must sit under a Level 3 category.',
   stores: 'Pick which stores sell this product. Store managers only see stores they are assigned to.',
+  storeStock: 'Use whole numbers from 0 up to 999,999 per store.',
   images: 'Up to 4 optional image keys (storage paths after upload). Leave blank rows out or remove them.',
   videos: 'Optional. Each line must be a full URL starting with https:// or http://',
 } as const
@@ -67,6 +68,24 @@ export function validateProductFormFields(form: ProductFormState): ProductFormEr
 
   if (form.storeIds.length === 0) {
     errors.stores = 'Select at least one store.'
+  }
+
+  const maxQty = 999_999
+  for (const storeId of form.storeIds) {
+    const raw = (form.storeQuantities[storeId] ?? '').trim()
+    if (raw.length === 0) {
+      errors.storeStock = 'Enter a quantity for each selected store (0 or more).'
+      break
+    }
+    if (!/^\d+$/.test(raw)) {
+      errors.storeStock = 'Stock quantities must be whole numbers (no decimals).'
+      break
+    }
+    const n = parseInt(raw, 10)
+    if (n > maxQty) {
+      errors.storeStock = `Quantity cannot exceed ${maxQty.toLocaleString('en-AU')}.`
+      break
+    }
   }
 
   const filledImages = form.imageS3Keys.map((s) => s.trim()).filter((s) => s.length > 0)

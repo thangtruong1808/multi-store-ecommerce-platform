@@ -117,6 +117,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
           isAdminUser={p.isAdminUser}
           toggleProductStoreId={p.toggleProductStoreId}
           onSelectAllStores={p.selectAllManagedStores}
+          onStoreQuantityChange={p.setProductStoreQuantity}
         />
       )}
 

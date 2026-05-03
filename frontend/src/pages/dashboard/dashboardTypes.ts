@@ -96,11 +96,18 @@ export type ProductItem = {
   isRefurbished?: boolean
 }
 
+export type ProductStoreStockRow = {
+  storeId: string
+  quantity: number
+}
+
 export type ProductDetail = ProductItem & {
   imageS3Keys: string[]
   videoUrls: string[]
   /** Present when loaded from product detail API */
   storeIds?: string[]
+  /** Per-store stock from GET /api/products/{id} */
+  storeStock?: ProductStoreStockRow[]
 }
 
 export type ProductsResponse = {
@@ -126,6 +133,8 @@ export type ProductFormState = {
   videoUrls: string[]
   /** Dashboard product scope; persisted via store_products */
   storeIds: string[]
+  /** Integer quantities as strings for controlled inputs; keys are store UUIDs */
+  storeQuantities: Record<string, string>
 }
 
 export type BasicRow = {

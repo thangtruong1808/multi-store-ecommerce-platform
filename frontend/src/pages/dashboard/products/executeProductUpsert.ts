@@ -60,6 +60,15 @@ export async function executeProductUpsert(opts: UpsertOpts): Promise<void> {
     throw new Error('categoryId: Choose a level 3 category before saving.')
   }
 
+  const maxQty = 999_999
+  const storeStock = productForm.storeIds.map((storeId) => {
+    const raw = (productForm.storeQuantities[storeId] ?? '0').trim()
+    let q = parseInt(raw, 10)
+    if (Number.isNaN(q) || q < 0) q = 0
+    if (q > maxQty) q = maxQty
+    return { storeId, quantity: q }
+  })
+
   const payload = {
     sku: productForm.sku.trim(),
     name: productForm.name.trim(),
@@ -72,6 +81,7 @@ export async function executeProductUpsert(opts: UpsertOpts): Promise<void> {
     imageS3Keys: productForm.imageS3Keys.map((item) => item.trim()).filter((item) => item.length > 0),
     videoUrls: productForm.videoUrls.map((item) => item.trim()).filter((item) => item.length > 0),
     storeIds: productForm.storeIds,
+    storeStock,
   }
   const response = await fetchWithAutoRefresh(
     editingProduct ? `${API_BASE_URL}/api/products/${editingProduct.id}` : `${API_BASE_URL}/api/products`,

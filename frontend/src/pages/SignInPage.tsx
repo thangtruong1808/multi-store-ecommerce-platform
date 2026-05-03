@@ -42,11 +42,14 @@ function SignInPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // If the form is already submitting, return to avoid multiple submissions
     if (isSubmitting) {
       return
     }
+    // Parse the form data using the Zod schema
     const parsed = signInSchema.safeParse(formData)
     if (!parsed.success) {
+      // If the form data is invalid, set the client errors
       const nextErrors: Record<string, string> = {}
       for (const issue of parsed.error.issues) {
         const pathKey = String(issue.path[0] ?? '')
@@ -55,11 +58,14 @@ function SignInPage() {
         }
       }
       setClientErrors(nextErrors)
+      // Return to avoid further processing
       return
     }
 
+    // Dispatch the sign in action
     const result = await dispatch(signIn(parsed.data))
     if (signIn.fulfilled.match(result)) {
+      // If the sign in is successful, navigate to the home page
       navigate('/')
     }
   }

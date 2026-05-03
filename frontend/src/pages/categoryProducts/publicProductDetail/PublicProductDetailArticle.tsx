@@ -15,6 +15,8 @@ type PublicProductDetailArticleProps = {
 }
 
 export function PublicProductDetailArticle({ product }: PublicProductDetailArticleProps) {
+  const availableQty = Number(product.availableQuantity ?? 0)
+
   return (
     <article className="mt-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -38,6 +40,17 @@ export function PublicProductDetailArticle({ product }: PublicProductDetailArtic
           <p className="mt-3 inline-flex items-center gap-2 text-2xl font-semibold text-slate-900">
             <FiShoppingBag className="h-6 w-6 shrink-0 text-sky-600 sm:h-7 sm:w-7" aria-hidden="true" />
             <span>{`A$${formatAudAmount(Number(product.basePrice))}`}</span>
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            {availableQty > 0 ? (
+              <>
+                In stock:{' '}
+                <span className="font-semibold tabular-nums text-emerald-700">{availableQty}</span>
+                <span className="text-slate-500"> — you can buy more than one while supplies last.</span>
+              </>
+            ) : (
+              <span className="text-amber-800">Out of stock</span>
+            )}
           </p>
           {/* {product.categoryName ? (
             <p className="mt-2 inline-flex items-start gap-2 text-sm text-slate-600">

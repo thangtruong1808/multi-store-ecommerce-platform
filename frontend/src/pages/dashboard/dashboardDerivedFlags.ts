@@ -48,6 +48,25 @@ function sortedIds(ids: string[]) {
   return [...ids].sort().join(',')
 }
 
+function normalizedStockSignature(productForm: ProductFormState): string {
+  return [...productForm.storeIds]
+    .sort()
+    .map((id) => `${id}:${parseInt(productForm.storeQuantities[id] ?? '0', 10) || 0}`)
+    .join('|')
+}
+
+function baselineStockSignature(editingProduct: ProductDetail): string {
+  const ids = editingProduct.storeIds ?? []
+  const stock = editingProduct.storeStock ?? []
+  return [...ids]
+    .sort()
+    .map((id) => {
+      const q = stock.find((s) => s.storeId === id)?.quantity ?? 0
+      return `${id}:${q}`
+    })
+    .join('|')
+}
+
 export function computeHasProductChanges(editingProduct: ProductDetail | null, productForm: ProductFormState) {
   if (editingProduct === null) {
     return (
@@ -71,7 +90,8 @@ export function computeHasProductChanges(editingProduct: ProductDetail | null, p
     productForm.level3Id !== (editingProduct.categoryId ?? 'none') ||
     productForm.imageS3Keys.filter((item) => item.trim().length > 0).join('|') !== editingProduct.imageS3Keys.join('|') ||
     productForm.videoUrls.filter((item) => item.trim().length > 0).join('|') !== editingProduct.videoUrls.join('|') ||
-    prevStores !== nextStores
+    prevStores !== nextStores ||
+    normalizedStockSignature(productForm) !== baselineStockSignature(editingProduct)
   )
 }
 

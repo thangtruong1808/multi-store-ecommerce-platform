@@ -29,6 +29,7 @@ type DashboardProductFormModalProps = {
   isAdminUser: boolean
   toggleProductStoreId: (storeId: string) => void
   onSelectAllStores: () => void
+  onStoreQuantityChange: (storeId: string, value: string) => void
 }
 
 function inputBorderClass(hasError: boolean) {
@@ -56,6 +57,7 @@ export function DashboardProductFormModal({
   isAdminUser,
   toggleProductStoreId,
   onSelectAllStores,
+  onStoreQuantityChange,
 }: DashboardProductFormModalProps) {
   const [fieldTouched, setFieldTouched] = useState<Record<string, boolean>>({})
   const [attemptedSave, setAttemptedSave] = useState(false)
@@ -137,6 +139,7 @@ export function DashboardProductFormModal({
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Stores</p>
                 <p className="text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.stores}</p>
+                <p className="mt-1 text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.storeStock}</p>
               </div>
               {isAdminUser && managedStores.length > 1 ? (
                 <button
@@ -159,33 +162,76 @@ export function DashboardProductFormModal({
               </p>
             ) : isAdminUser ? (
               <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/90 p-2">
-                {managedStores.map((m) => (
-                  <label
-                    key={m.id}
-                    className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1.5 text-sm transition hover:bg-white"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                      checked={productForm.storeIds.includes(m.id)}
-                      onChange={() => toggleProductStoreId(m.id)}
-                    />
-                    <span>
-                      <span className="font-medium text-slate-800">{m.name}</span>
-                      <span className="ml-1 text-xs text-slate-500">{m.slug}</span>
-                      {!m.isActive ? <span className="ml-2 text-xs text-amber-800">(inactive)</span> : null}
-                    </span>
-                  </label>
-                ))}
+                {managedStores.map((m) => {
+                  const checked = productForm.storeIds.includes(m.id)
+                  return (
+                    <div
+                      key={m.id}
+                      className="flex flex-col gap-2 rounded-md px-1 py-1.5 text-sm transition hover:bg-white sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                    >
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          checked={checked}
+                          onChange={() => toggleProductStoreId(m.id)}
+                        />
+                        <span className="min-w-0">
+                          <span className="font-medium text-slate-800">{m.name}</span>
+                          <span className="ml-1 text-xs text-slate-500">{m.slug}</span>
+                          {!m.isActive ? <span className="ml-2 text-xs text-amber-800">(inactive)</span> : null}
+                        </span>
+                      </label>
+                      {checked ? (
+                        <div className="flex shrink-0 items-center gap-2 pl-7 sm:pl-0">
+                          <label className="sr-only" htmlFor={`product-store-qty-${m.id}`}>
+                            Stock quantity for {m.name}
+                          </label>
+                          <input
+                            id={`product-store-qty-${m.id}`}
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            max={999999}
+                            value={productForm.storeQuantities[m.id] ?? '0'}
+                            onChange={(e) => onStoreQuantityChange(m.id, e.target.value)}
+                            onBlur={() => setFieldTouched((prev) => ({ ...prev, storeStock: true }))}
+                            className={`w-full min-w-0 rounded-md border px-2 py-1.5 text-sm tabular-nums text-slate-800 outline-none transition focus:ring sm:w-24 ${inputBorderClass(showFieldError('storeStock'))}`}
+                            aria-invalid={showFieldError('storeStock')}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
             ) : (
-              <ul className="space-y-1 rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-800">
+              <ul className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-800">
                 {managedStores
                   .filter((m) => productForm.storeIds.includes(m.id))
                   .map((m) => (
-                    <li key={m.id}>
-                      <span className="font-medium">{m.name}</span>{' '}
-                      <span className="text-xs text-slate-500">({m.slug})</span>
+                    <li
+                      key={m.id}
+                      className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                    >
+                      <span className="min-w-0 font-medium">
+                        {m.name} <span className="text-xs font-normal text-slate-500">({m.slug})</span>
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-xs text-slate-500">Qty</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={999999}
+                          value={productForm.storeQuantities[m.id] ?? '0'}
+                          onChange={(e) => onStoreQuantityChange(m.id, e.target.value)}
+                          onBlur={() => setFieldTouched((prev) => ({ ...prev, storeStock: true }))}
+                          className={`w-full min-w-0 rounded-md border px-2 py-1.5 text-sm tabular-nums text-slate-800 outline-none transition focus:ring sm:w-24 ${inputBorderClass(showFieldError('storeStock'))}`}
+                          aria-label={`Stock quantity for ${m.name}`}
+                          aria-invalid={showFieldError('storeStock')}
+                        />
+                      </div>
                     </li>
                   ))}
               </ul>
@@ -193,6 +239,11 @@ export function DashboardProductFormModal({
             {showFieldError('stores') ? (
               <p className="text-xs text-rose-600" role="alert">
                 {validationErrors.stores}
+              </p>
+            ) : null}
+            {showFieldError('storeStock') ? (
+              <p className="text-xs text-rose-600" role="alert">
+                {validationErrors.storeStock}
               </p>
             ) : null}
           </div>
