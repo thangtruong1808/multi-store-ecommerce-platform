@@ -58,6 +58,11 @@ export function NavbarUserMenu({
                 </Link>
               </li>
               <li>
+                <Link to="/orders" className="block rounded px-2 py-1.5 hover:bg-slate-100">
+                  Order history
+                </Link>
+              </li>
+              <li>
                 <button
                   type="button"
                   onClick={() => void onSignOut()}

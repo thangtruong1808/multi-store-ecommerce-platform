@@ -88,6 +88,16 @@ if (!string.IsNullOrWhiteSpace(allowedOrigins)) // If the allowed origins is not
 // --- Build app and request pipeline (order matters: develop docs → CORS → then auth, then endpoints) ---
 var app = builder.Build(); // Build the application (service registration is complete; from here the pipeline runs in order)
 
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/webhooks/stripe"))
+    {
+        context.Request.EnableBuffering();
+    }
+
+    await next();
+});
+
 if (app.Environment.IsDevelopment()) // If the environment is development
 {
     app.UseSwagger(); // Use Swagger

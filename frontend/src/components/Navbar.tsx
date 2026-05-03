@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
-import { useAppDispatch } from '../app/hooks'
+import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { logoutUser } from '../features/auth/authSlice'
 import { NavbarDesktopPrimaryNav } from './navbar/NavbarDesktopPrimaryNav'
 import { NavbarDesktopTopRow } from './navbar/NavbarDesktopTopRow'
@@ -29,6 +29,8 @@ type NavbarProps = {
 
 function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: NavbarProps) {
   const dispatch = useAppDispatch()
+  const cartCount = useAppSelector((s) => s.cart.items.reduce((n, i) => n + i.quantity, 0))
+  const wishlistCount = useAppSelector((s) => s.wishlist.ids.length)
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || 'U'
   const [categories, setCategories] = useState<PublicCategory[]>([])
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false)
@@ -246,6 +248,8 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
         <NavbarMobileBar
           isMobileNavOpen={isMobileNavOpen}
           onToggleMobileNav={() => setIsMobileNavOpen((prev) => !prev)}
+          cartCount={cartCount}
+          wishlistCount={wishlistCount}
           isAuthenticated={isAuthenticated}
           userEmail={userEmail}
           firstName={firstName}
@@ -264,6 +268,8 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
             onSearchInputChange={setSearchInput}
             onSearchSubmit={handleSearchSubmit}
             isSearchSubmitting={isSearchSubmitting}
+            cartCount={cartCount}
+            wishlistCount={wishlistCount}
             isAuthenticated={isAuthenticated}
             userEmail={userEmail}
             firstName={firstName}

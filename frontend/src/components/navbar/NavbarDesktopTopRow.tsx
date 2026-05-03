@@ -4,6 +4,8 @@ import BrandMark from '../BrandMark'
 import { NavbarUserMenu } from './NavbarUserMenu'
 
 type NavbarDesktopTopRowProps = {
+  cartCount: number
+  wishlistCount: number
   searchInput: string
   onSearchInputChange: (value: string) => void
   onSearchSubmit: () => void
@@ -21,6 +23,8 @@ type NavbarDesktopTopRowProps = {
 }
 
 export function NavbarDesktopTopRow({
+  cartCount,
+  wishlistCount,
   searchInput,
   onSearchInputChange,
   onSearchSubmit,
@@ -73,12 +77,30 @@ export function NavbarDesktopTopRow({
         </div>
 
         <div className="flex shrink-0 flex-nowrap items-center justify-end gap-2 justify-self-end">
-          <button type="button" className="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50" aria-label="Shopping cart">
+          <Link
+            to="/cart"
+            className="relative inline-flex min-h-[36px] items-center justify-center rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+            aria-label={cartCount > 0 ? `Shopping cart, ${cartCount} items` : 'Shopping cart'}
+          >
             Cart
-          </button>
-          <button type="button" className="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50" aria-label="Wishlist">
+            {cartCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-sky-600 px-1 text-[10px] font-semibold leading-none text-white">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            ) : null}
+          </Link>
+          <Link
+            to="/wishlist"
+            className="relative inline-flex min-h-[36px] items-center justify-center rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+            aria-label={wishlistCount > 0 ? `Wishlist, ${wishlistCount} items` : 'Wishlist'}
+          >
             Wishlist
-          </button>
+            {wishlistCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-sky-600 px-1 text-[10px] font-semibold leading-none text-white">
+                {wishlistCount > 99 ? '99+' : wishlistCount}
+              </span>
+            ) : null}
+          </Link>
           <NavbarUserMenu
             isAuthenticated={isAuthenticated}
             userEmail={userEmail}

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from './app/hooks'
 import { fetchCurrentUser } from './features/auth/authSlice'
+import { fetchAndMergeWishlist } from './features/wishlist/wishlistThunks'
 import Navbar from './components/Navbar'
 import SignInPage from './pages/SignInPage'
 import RegisterPage from './pages/RegisterPage'
@@ -17,6 +18,12 @@ import { AdminRoute, GuestOnlyRoute, ProtectedRoute } from './components/RouteGu
 import HomePage from './pages/home/HomePage'
 import ClearancePage from './pages/ClearancePage'
 import ContactPage from './pages/ContactPage'
+import CartPage from './pages/CartPage'
+import WishlistPage from './pages/WishlistPage'
+import CheckoutSuccessPage from './pages/CheckoutSuccessPage'
+import CheckoutCancelPage from './pages/CheckoutCancelPage'
+import OrdersHistoryPage from './pages/OrdersHistoryPage'
+import OrderDetailPage from './pages/OrderDetailPage'
 
 function App() {
   const dispatch = useAppDispatch()
@@ -27,6 +34,12 @@ function App() {
   useEffect(() => {
     dispatch(fetchCurrentUser())
   }, [dispatch])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void dispatch(fetchAndMergeWishlist())
+    }
+  }, [dispatch, isAuthenticated])
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-800">
@@ -49,6 +62,10 @@ function App() {
         <Route path="/:level1Slug/:categorySlug/products" element={<CategoryProductsBySlugPage />} />
         <Route path="/clearance" element={<ClearancePage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
+        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+        <Route path="/checkout/cancel" element={<CheckoutCancelPage />} />
         <Route element={<GuestOnlyRoute />}>
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -56,6 +73,8 @@ function App() {
         </Route>
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/orders" element={<OrdersHistoryPage />} />
+          <Route path="/orders/:orderId" element={<OrderDetailPage />} />
         </Route>
         <Route element={<AdminRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
