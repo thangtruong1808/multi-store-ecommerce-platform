@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { canAccessDashboard } from '../../features/auth/authConstants'
 import { UserAvatarCircle } from '../auth/UserAvatarCircle'
 
 type NavbarUserMenuProps = {
@@ -32,6 +33,8 @@ export function NavbarUserMenu({
   onSignOut,
   signInClassName,
 }: NavbarUserMenuProps) {
+  const showDashboardLink = canAccessDashboard(role)
+
   if (isAuthenticated) {
     return (
       <div className="relative shrink-0">
@@ -57,11 +60,13 @@ export function NavbarUserMenu({
               <p className="mt-1 text-xs text-slate-500">Role: {role ?? 'unknown'}</p>
             </div>
             <ul className="p-2 text-sm text-slate-600">
-              <li>
-                <Link to="/dashboard" className="block rounded px-2 py-1.5 hover:bg-slate-100">
-                  Dashboard
-                </Link>
-              </li>
+              {showDashboardLink ? (
+                <li>
+                  <Link to="/dashboard" className="block rounded px-2 py-1.5 hover:bg-slate-100">
+                    Dashboard
+                  </Link>
+                </li>
+              ) : null}
               <li>
                 <Link to="/profile" className="block rounded px-2 py-1.5 hover:bg-slate-100">
                   Profile

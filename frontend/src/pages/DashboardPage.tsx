@@ -37,6 +37,8 @@ function DashboardPage() {
         isLoading={model.isLoading}
         fullName={model.fullName}
         userRole={model.userRole}
+        storeLocationLabel={model.storeLocationLabel}
+        isStoreLocationLoading={model.isStoreLocationLoading}
         isNavigatingHome={model.isNavigatingHome}
         onBackToFrontend={model.handleBackToFrontend}
         actionLoading={model.actionLoading}

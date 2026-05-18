@@ -17,6 +17,7 @@ import { invalidateDashboardSession } from '../fetchDashboardApi'
 import { useDashboardChrome } from './useDashboardChrome'
 import { useDashboardProductsBlock } from './useDashboardProductsBlock'
 import { useDashboardStoresBlock } from './useDashboardStoresBlock'
+import { useDashboardSessionStores } from './useDashboardSessionStores'
 import { useDashboardUsersBlock } from './useDashboardUsersBlock'
 
 export function useDashboardModel() {
@@ -45,6 +46,7 @@ export function useDashboardModel() {
   }, [])
 
   const chrome = useDashboardChrome(navigate, activeFeature, pageSize, setPage)
+  const sessionStores = useDashboardSessionStores(dashboardApiReady)
 
   const categories = useDashboardCategoriesBlock(
     activeFeature,
@@ -149,6 +151,8 @@ export function useDashboardModel() {
     isHydrated,
     fullName,
     userRole: user?.role ?? 'unknown',
+    storeLocationLabel: sessionStores.storeLocationLabel,
+    isStoreLocationLoading: sessionStores.isStoreLocationLoading,
 
     activeFeature,
     setActiveFeature,

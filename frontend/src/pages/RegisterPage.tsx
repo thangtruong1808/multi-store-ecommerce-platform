@@ -48,6 +48,8 @@ function RegisterPage() {
   })
   // The useState hook is used to store the client errors.
   const [clientErrors, setClientErrors] = useState<Record<string, string | undefined>>({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // The useMemo hook is used to memoize the merged errors.
   const mergedErrors = useMemo(() => ({ ...fieldErrors, ...clientErrors }), [fieldErrors, clientErrors])
@@ -182,17 +184,28 @@ function RegisterPage() {
               <FiLock className="h-4 w-4 text-slate-500" aria-hidden="true" />
               Password
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              disabled={isSubmitting}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
-              placeholder="Choose a strong password"
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                value={formData.password}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 pr-16 outline-none ring-slate-200 focus:ring"
+                placeholder="Choose a strong password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                disabled={isSubmitting}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
             {mergedErrors.password && <p className="mt-1 text-xs text-red-600">{mergedErrors.password}</p>}
           </div>
 
@@ -220,17 +233,28 @@ function RegisterPage() {
               <FiCheckCircle className="h-4 w-4 text-slate-500" aria-hidden="true" />
               Confirm Password
             </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              disabled={isSubmitting}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
-              placeholder="Re-enter your password"
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 pr-16 outline-none ring-slate-200 focus:ring"
+                placeholder="Re-enter your password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                disabled={isSubmitting}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              >
+                {showConfirmPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
             {mergedErrors.confirmPassword && <p className="mt-1 text-xs text-red-600">{mergedErrors.confirmPassword}</p>}
           </div>
 

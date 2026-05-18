@@ -17,6 +17,8 @@ type DashboardSidebarProps = {
   isLoading: boolean
   fullName: string
   userRole: string
+  storeLocationLabel: string
+  isStoreLocationLoading: boolean
   isNavigatingHome: boolean
   onBackToFrontend: () => void
   actionLoading: boolean
@@ -34,6 +36,8 @@ export function DashboardSidebar({
   isLoading,
   fullName,
   userRole,
+  storeLocationLabel,
+  isStoreLocationLoading,
   isNavigatingHome,
   onBackToFrontend,
   actionLoading,
@@ -68,15 +72,20 @@ export function DashboardSidebar({
           {!isSidebarCollapsed && (
             <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Signed in as</p>
-              {!isHydrated || isLoading ? (
-                <div className="mt-1 inline-flex items-center gap-2 text-xs text-slate-500">
+              {!isHydrated || isLoading || isStoreLocationLoading ? (
+                <div className="mt-1 inline-flex items-center gap-2 text-xs text-slate-500" role="status" aria-live="polite">
                   <DashboardSpinner className="h-3.5 w-3.5" />
-                  Loading user...
+                  <span>Loading session…</span>
+                  <span className="sr-only">Loading user and store location</span>
                 </div>
               ) : (
                 <>
                   <p className="mt-1 text-sm font-semibold text-slate-800">{fullName}</p>
                   <p className="text-xs text-slate-600">Role: {userRole}</p>
+                  <p className="mt-1 text-xs leading-snug text-slate-600">
+                    <span className="font-medium text-slate-700">Store location:</span>{' '}
+                    <span className="break-words">{storeLocationLabel}</span>
+                  </p>
                 </>
               )}
             </div>

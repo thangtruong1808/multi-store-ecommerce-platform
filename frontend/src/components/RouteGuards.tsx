@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAppSelector } from '../app/hooks'
+import { canAccessDashboard } from '../features/auth/authConstants'
 
 function RouteLoading() {
   return (
@@ -31,8 +32,7 @@ export function ProtectedRoute() {
 
 export function AdminRoute() {
   const { isAuthenticated, isHydrated, isLoading, user } = useAppSelector((state) => state.auth)
-  const role = user?.role
-  const isAllowed = role === 'admin' || role === 'store_manager'
+  const isAllowed = canAccessDashboard(user?.role)
 
   if (!isHydrated || isLoading) {
     return <RouteLoading />
