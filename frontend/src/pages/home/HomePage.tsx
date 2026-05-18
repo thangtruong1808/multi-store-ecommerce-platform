@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { HomePageFooter } from '../../components/footer/HomePageFooter'
 import { HomeCarouselSection, HomeCarouselSkeletonRow } from '../../components/home/HomeCarouselSection'
 import { HomeCategoryCard } from '../../components/home/HomeCategoryCard'
 import { HomeProductCard, type HomeProductCardModel } from '../../components/home/HomeProductCard'
@@ -262,6 +263,12 @@ export default function HomePage() {
             </HomeCarouselSection>
           </div>
         </main>
+
+        <HomePageFooter
+          level1Categories={level1Categories}
+          isLoading={loadingCategories}
+          error={errorCategories}
+        />
       </div>
     </div>
   )

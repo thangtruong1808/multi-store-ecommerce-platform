@@ -61,6 +61,7 @@ builder.Services.Configure<AzureCommunicationEmailOptions>(options =>
     options.ConnectionString = builder.Configuration["ACS_EMAIL_CONNECTION_STRING"] ?? string.Empty;
     options.SenderAddress = (builder.Configuration["ACS_EMAIL_SENDER_ADDRESS"] ?? string.Empty).Trim();
     options.PasswordResetTokenMinutes = passwordResetTokenMinutes;
+    options.ContactFormToEmail = (builder.Configuration["CONTACT_FORM_TO_EMAIL"] ?? string.Empty).Trim();
 });
 builder.Services.AddSingleton<AzureCommunicationEmailService>();
 

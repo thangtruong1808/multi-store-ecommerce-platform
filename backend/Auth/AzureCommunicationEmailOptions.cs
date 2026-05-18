@@ -9,4 +9,7 @@ public sealed class AzureCommunicationEmailOptions
     public string SenderAddress { get; set; } = string.Empty;
 
     public int PasswordResetTokenMinutes { get; set; } = 30;
+
+    /// <summary>Inbox for contact form submissions (your personal email).</summary>
+    public string ContactFormToEmail { get; set; } = string.Empty;
 }

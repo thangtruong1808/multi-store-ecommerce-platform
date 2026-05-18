@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import { FiCheckCircle, FiMail, FiMessageSquare, FiPhone, FiSend, FiTag, FiUser } from 'react-icons/fi'
+import { submitContactForm } from '../../features/contact/contactApi'
 
 const contactSchema = z.object({
   name: z.string().trim().min(2, 'Please enter at least 2 characters'),
@@ -42,6 +43,7 @@ export function ContactForm() {
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const showError = (key: keyof ContactFormValues) =>
     Boolean(errors[key]) && (Boolean(touched[key]) || attemptedSubmit)
@@ -50,6 +52,7 @@ export function ContactForm() {
     setValues((prev) => ({ ...prev, [field]: value }))
     setErrors((prev) => ({ ...prev, [field]: undefined }))
     setSubmitted(false)
+    setSubmitError(null)
   }
 
   const handleBlur = (field: keyof ContactFormValues) => {
@@ -73,13 +76,24 @@ export function ContactForm() {
 
     setIsSending(true)
     setErrors({})
-    // Demo: no backend contact endpoint yet — simulate network delay
-    await new Promise((r) => setTimeout(r, 600))
-    setIsSending(false)
-    setSubmitted(true)
-    setValues(initialValues)
-    setTouched({})
-    setAttemptedSubmit(false)
+    setSubmitError(null)
+    try {
+      await submitContactForm({
+        name: parsed.data.name,
+        email: parsed.data.email,
+        phone: parsed.data.phone || undefined,
+        subject: parsed.data.subject,
+        message: parsed.data.message,
+      })
+      setSubmitted(true)
+      setValues(initialValues)
+      setTouched({})
+      setAttemptedSubmit(false)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Unable to send your message. Please try again.')
+    } finally {
+      setIsSending(false)
+    }
   }
 
   if (submitted) {
@@ -117,7 +131,13 @@ export function ContactForm() {
       onSubmit={handleSubmit}
       noValidate
       aria-label="Contact form"
+      aria-busy={isSending}
     >
+      {submitError ? (
+        <p className="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
+          {submitError}
+        </p>
+      ) : null}
       <div className="grid gap-5 sm:gap-6">
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -265,6 +285,7 @@ export function ContactForm() {
               <FiSend className="h-4 w-4 shrink-0" aria-hidden="true" />
             )}
             {isSending ? 'Sending…' : 'Send message'}
+            {isSending ? <span className="sr-only">Sending message</span> : null}
           </button>
         </div>
       </div>
