@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+guide/
+guide/**/*.local.md
+guide/local/

@@ -9,5 +9,6 @@ frontend/.env
 backend/.env
 /database/
 BRANCH_PRODUCTION_GUIDE.local.md
+guide/
 guide/**/*.local.md
 guide/local/
