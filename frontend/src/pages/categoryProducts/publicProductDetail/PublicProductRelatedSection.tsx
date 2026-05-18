@@ -1,5 +1,6 @@
-import { FiImage, FiRefreshCw } from 'react-icons/fi'
+import { FiRefreshCw } from 'react-icons/fi'
 import { NavLink } from 'react-router-dom'
+import { StorefrontProductPhoto } from '../../../components/product/StorefrontProductPhoto'
 import { publicProductDetailPath } from '../categoryProductRoutes'
 import type { RelatedProductItem } from './types'
 
@@ -54,9 +55,14 @@ export function PublicProductRelatedSection({
                           <FiRefreshCw className="h-6 w-6 animate-spin text-sky-600" aria-hidden="true" />
                         </div>
                       ) : null}
-                      <div className="flex h-full items-center justify-center text-slate-300">
-                        <FiImage className="h-8 w-8" aria-hidden="true" />
-                      </div>
+                      <StorefrontProductPhoto
+                        imageS3Key={item.primaryImageS3Key}
+                        alt={item.name}
+                        aspectClassName="aspect-[5/3]"
+                        iconClassName="h-8 w-8"
+                        containerClassName="bg-slate-100"
+                        showPlaceholderLabel={false}
+                      />
                     </div>
                     <div className="flex min-h-0 flex-1 flex-col p-3">
                       <p className="line-clamp-2 text-sm font-medium leading-snug text-slate-900">{item.name}</p>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FiChevronRight, FiImage, FiRefreshCw } from 'react-icons/fi'
+import { FiChevronRight, FiRefreshCw } from 'react-icons/fi'
+import { StorefrontProductPhoto } from '../../components/product/StorefrontProductPhoto'
 import { Link, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { PublicCategory } from '../../components/navbar/types'
 import {
@@ -17,6 +18,7 @@ type PublicProduct = {
   basePrice: number
   categoryName?: string | null
   description?: string | null
+  primaryImageS3Key?: string | null
 }
 
 function safeDecode(segment: string) {
@@ -322,13 +324,13 @@ export function CategoryProductsBySlugPage() {
                             <span className="sr-only">Opening product</span>
                           </div>
                         ) : null}
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-slate-400">
-                          <FiImage className="h-10 w-10 sm:h-12 sm:w-12" aria-hidden="true" />
-                          <span className="sr-only">No product photo</span>
-                          <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:text-xs">
-                            Photo soon
-                          </span>
-                        </div>
+                        <StorefrontProductPhoto
+                          imageS3Key={product.primaryImageS3Key}
+                          alt={product.name}
+                          aspectClassName="aspect-[4/3]"
+                          containerClassName="bg-slate-100"
+                          showPlaceholderLabel={false}
+                        />
                       </div>
                       <article className="flex min-h-0 flex-1 flex-col p-4">
                         <h2 className="line-clamp-2 text-base font-semibold leading-snug text-slate-900 group-hover:text-sky-900">

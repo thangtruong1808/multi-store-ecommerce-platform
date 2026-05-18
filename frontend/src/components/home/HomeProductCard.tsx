@@ -1,5 +1,5 @@
-import { FiImage } from 'react-icons/fi'
 import { NavLink } from 'react-router-dom'
+import { StorefrontProductPhoto } from '../product/StorefrontProductPhoto'
 import { publicProductDetailPath } from '../../pages/categoryProducts/categoryProductRoutes'
 import { formatAudAmount } from './formatAud'
 
@@ -11,6 +11,7 @@ export type HomeProductCardModel = {
   categoryName?: string | null
   level1Slug?: string | null
   categorySlug?: string | null
+  primaryImageS3Key?: string | null
 }
 
 type HomeProductCardProps = {
@@ -25,12 +26,15 @@ export function HomeProductCard({ product }: HomeProductCardProps) {
 
   const cardBody = (
     <>
-      <div className="relative aspect-[5/3] w-full shrink-0 bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-        <div className="relative flex h-full w-full flex-col items-center justify-center gap-1.5 text-slate-400 transition-colors duration-200 group-hover:text-slate-500">
-          <FiImage className="h-10 w-10 shrink-0 sm:h-12 sm:w-12" aria-hidden="true" />
-          <span className="text-[10px] font-medium uppercase tracking-wide sm:text-xs">Photo soon</span>
-        </div>
+      <div className="relative aspect-[5/3] w-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="absolute inset-0 z-[1] bg-gradient-to-t from-slate-900/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+        <StorefrontProductPhoto
+          imageS3Key={product.primaryImageS3Key}
+          alt={product.name}
+          aspectClassName="aspect-[5/3]"
+          containerClassName="bg-transparent"
+          showPlaceholderLabel={false}
+        />
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <p className="line-clamp-2 text-base font-semibold leading-snug text-slate-900 transition-colors group-hover:text-sky-900">{product.name}</p>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FiHeart, FiImage, FiPackage, FiShoppingBag, FiShoppingCart } from 'react-icons/fi'
+import { FiHeart, FiPackage, FiShoppingBag, FiShoppingCart } from 'react-icons/fi'
 
 import { useAppDispatch, useAppSelector } from '../../../app/hooks'
 import { formatAudAmount } from '../../../components/home/formatAud'
@@ -8,6 +8,7 @@ import { addWishlistOnServer, removeWishlistOnServer } from '../../../features/w
 import { toggleWishlistProduct } from '../../../features/wishlist/wishlistSlice'
 import type { PublicProductDetail } from './types'
 import { ProductDescriptionBulletList } from './ProductDescriptionBulletList'
+import { PublicProductDetailGallery } from './PublicProductDetailGallery'
 
 type PublicProductDetailArticleProps = {
   product: PublicProductDetail
@@ -57,14 +58,7 @@ export function PublicProductDetailArticle({ product }: PublicProductDetailArtic
         {announce ?? ''}
       </div>
       <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="w-full shrink-0 lg:max-w-md">
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-100">
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
-              <FiImage className="h-14 w-14 sm:h-16 sm:w-16" aria-hidden="true" />
-              <span className="px-4 text-center text-xs text-slate-500 sm:text-sm">Photo coming soon</span>
-            </div>
-          </div>
-        </div>
+        <PublicProductDetailGallery imageS3Keys={product.imageS3Keys} productName={product.name} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <FiPackage className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />

@@ -18,4 +18,5 @@ export type RelatedProductItem = {
   name: string
   basePrice: number
   categoryName?: string | null
+  primaryImageS3Key?: string | null
 }

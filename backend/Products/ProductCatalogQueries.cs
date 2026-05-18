@@ -7,6 +7,13 @@ namespace backend.Products;
 /// <summary>Read queries for public catalog lists, spotlight rows, and category slug resolution.</summary>
 internal static class ProductCatalogQueries
 {
+    private const string PrimaryImageSelectSql = """
+                                                 (SELECT pi.image_s3_key
+                                                  FROM app.product_images pi
+                                                  WHERE pi.product_id = p.id
+                                                  ORDER BY pi.sort_order ASC
+                                                  LIMIT 1)
+                                                 """;
     public static async Task<short?> GetCategoryLevelAsync(NpgsqlDataSource dataSource, Guid categoryId)
     {
         await using var conn = await dataSource.OpenConnectionAsync();
@@ -79,7 +86,7 @@ internal static class ProductCatalogQueries
         var search = q?.Trim();
         await using var conn = await dataSource.OpenConnectionAsync();
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        cmd.CommandText = $"""
                           WITH RECURSIVE selected_categories AS (
                               SELECT c.id
                               FROM app.categories c
@@ -99,7 +106,8 @@ internal static class ProductCatalogQueries
                               p.category_id,
                               c.name AS category_name,
                               p.created_at,
-                              p.updated_at
+                              p.updated_at,
+                              {PrimaryImageSelectSql} AS primary_image_s3_key
                           FROM app.products p
                           LEFT JOIN app.categories c ON c.id = p.category_id
                           WHERE lower(p.status) = 'active'
@@ -131,7 +139,8 @@ internal static class ProductCatalogQueries
                 categoryId = reader.IsDBNull(6) ? (Guid?)null : reader.GetGuid(6),
                 categoryName = reader.IsDBNull(7) ? null : reader.GetString(7),
                 createdAt = reader.GetDateTime(8),
-                updatedAt = reader.GetDateTime(9)
+                updatedAt = reader.GetDateTime(9),
+                primaryImageS3Key = reader.IsDBNull(10) ? null : reader.GetString(10)
             });
         }
 
@@ -149,6 +158,7 @@ internal static class ProductCatalogQueries
             categoryName = reader.IsDBNull(4) ? null : reader.GetString(4),
             level1Slug = reader.IsDBNull(5) ? null : reader.GetString(5),
             categorySlug = reader.IsDBNull(6) ? null : reader.GetString(6),
+            primaryImageS3Key = reader.IsDBNull(7) ? null : reader.GetString(7),
         };
     }
 
@@ -179,7 +189,8 @@ internal static class ProductCatalogQueries
                                      ) x
                                 WHERE x.level = 1
                                 LIMIT 1) AS level1_slug,
-                               leaf.slug AS category_slug
+                               leaf.slug AS category_slug,
+                               {PrimaryImageSelectSql} AS primary_image_s3_key
                            FROM app.products p
                                     LEFT JOIN app.categories c ON c.id = p.category_id
                                     LEFT JOIN app.categories leaf ON leaf.id = p.category_id
@@ -202,7 +213,7 @@ internal static class ProductCatalogQueries
     {
         await using var conn = await dataSource.OpenConnectionAsync();
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        cmd.CommandText = $"""
                           WITH sales AS (
                               SELECT oi.product_id,
                                      SUM(oi.quantity)::BIGINT AS units
@@ -233,7 +244,8 @@ internal static class ProductCatalogQueries
                                        ) x
                                   WHERE x.level = 1
                                   LIMIT 1) AS level1_slug,
-                                 leaf.slug AS category_slug
+                                 leaf.slug AS category_slug,
+                                 {PrimaryImageSelectSql} AS primary_image_s3_key
                           FROM app.products p
                                    LEFT JOIN app.categories c ON c.id = p.category_id
                                    LEFT JOIN app.categories leaf ON leaf.id = p.category_id

@@ -293,7 +293,12 @@ public partial class ProductsController
                               p.sku,
                               p.name,
                               p.base_price,
-                              c.name AS category_name
+                              c.name AS category_name,
+                              (SELECT pi.image_s3_key
+                               FROM app.product_images pi
+                               WHERE pi.product_id = p.id
+                               ORDER BY pi.sort_order ASC
+                               LIMIT 1) AS primary_image_s3_key
                           FROM app.products p
                           LEFT JOIN app.categories c ON c.id = p.category_id
                           WHERE lower(p.status) = 'active'
@@ -317,6 +322,7 @@ public partial class ProductsController
                 name = reader.GetString(2),
                 basePrice = reader.GetDecimal(3),
                 categoryName = reader.IsDBNull(4) ? null : reader.GetString(4),
+                primaryImageS3Key = reader.IsDBNull(5) ? null : reader.GetString(5),
             });
         }
 
