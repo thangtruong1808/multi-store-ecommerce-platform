@@ -1,4 +1,4 @@
-using System.Globalization;
+using backend.Auth;
 using Npgsql;
 
 namespace backend.Checkout;
@@ -157,7 +157,7 @@ internal static class CheckoutOrderPersistence
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public static async Task<bool> TryCompletePaidOrderAsync(
+    public static async Task<(bool Found, bool NewlyCompleted)> TryCompletePaidOrderAsync(
         NpgsqlConnection conn,
         NpgsqlTransaction tx,
         Guid orderId,
@@ -179,12 +179,12 @@ internal static class CheckoutOrderPersistence
         await using var reader = await load.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct))
         {
-            return false;
+            return (false, false);
         }
 
         if (string.Equals(reader.GetString(2), "succeeded", StringComparison.OrdinalIgnoreCase))
         {
-            return true;
+            return (true, false);
         }
 
         await reader.CloseAsync();
@@ -202,6 +202,60 @@ internal static class CheckoutOrderPersistence
         upd.Parameters.AddWithValue("oid", orderId);
         upd.Parameters.AddWithValue("pi", string.IsNullOrEmpty(paymentIntentId) ? DBNull.Value : paymentIntentId);
         var n = await upd.ExecuteNonQueryAsync(ct);
-        return n > 0;
+        return (true, n > 0);
+    }
+
+    public static async Task<OrderConfirmationEmailData?> GetOrderConfirmationEmailDataAsync(
+        NpgsqlConnection conn,
+        Guid orderId,
+        CancellationToken ct)
+    {
+        await using var headerCmd = conn.CreateCommand();
+        headerCmd.CommandText = """
+                                  SELECT id,
+                                         customer_email,
+                                         customer_full_name,
+                                         order_number,
+                                         grand_total::numeric,
+                                         currency_code
+                                  FROM app.orders
+                                  WHERE id = @oid
+                                    AND payment_status::text = 'succeeded'
+                                  LIMIT 1;
+                                  """;
+        headerCmd.Parameters.AddWithValue("oid", orderId);
+        await using var headerReader = await headerCmd.ExecuteReaderAsync(ct);
+        if (!await headerReader.ReadAsync(ct))
+        {
+            return null;
+        }
+
+        var id = headerReader.GetGuid(0);
+        var email = headerReader.GetString(1);
+        var name = headerReader.IsDBNull(2) ? string.Empty : headerReader.GetString(2);
+        var orderNumber = headerReader.GetString(3);
+        var grandTotal = headerReader.GetDecimal(4);
+        var currency = headerReader.GetString(5);
+        await headerReader.CloseAsync();
+
+        await using var itemsCmd = conn.CreateCommand();
+        itemsCmd.CommandText = """
+                               SELECT product_name, quantity, line_total::numeric
+                               FROM app.order_items
+                               WHERE order_id = @oid
+                               ORDER BY product_name;
+                               """;
+        itemsCmd.Parameters.AddWithValue("oid", orderId);
+        var items = new List<OrderConfirmationLineItem>();
+        await using var itemsReader = await itemsCmd.ExecuteReaderAsync(ct);
+        while (await itemsReader.ReadAsync(ct))
+        {
+            items.Add(new OrderConfirmationLineItem(
+                itemsReader.GetString(0),
+                itemsReader.GetInt32(1),
+                itemsReader.GetDecimal(2)));
+        }
+
+        return new OrderConfirmationEmailData(id, email, name, orderNumber, grandTotal, currency, items);
     }
 }

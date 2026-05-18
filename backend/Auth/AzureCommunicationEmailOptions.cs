@@ -10,6 +10,9 @@ public sealed class AzureCommunicationEmailOptions
 
     public int PasswordResetTokenMinutes { get; set; } = 30;
 
-    /// <summary>Inbox for contact form submissions (your personal email).</summary>
+    /// <summary>Inbox for contact form submissions and support line in customer emails.</summary>
     public string ContactFormToEmail { get; set; } = string.Empty;
+
+    /// <summary>Public SPA origin for links in emails (no trailing slash).</summary>
+    public string PublicAppBaseUrl { get; set; } = string.Empty;
 }

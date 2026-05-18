@@ -230,11 +230,19 @@ export default function CartPage() {
             </p>
             <button
               type="button"
-              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-md bg-sky-600 px-4 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60 sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-sky-600 px-4 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60 sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
               disabled={isCheckingOut || !canAttemptCheckout}
+              aria-busy={isCheckingOut}
               onClick={() => void handleCheckout()}
             >
+              {isCheckingOut ? (
+                <span
+                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                />
+              ) : null}
               {isCheckingOut ? 'Redirecting…' : 'Pay with card (test)'}
+              {isCheckingOut ? <span className="sr-only">Checkout in progress</span> : null}
             </button>
           </div>
 

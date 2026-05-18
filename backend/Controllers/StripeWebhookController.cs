@@ -1,4 +1,5 @@
 using System.Text;
+using backend.Auth;
 using backend.Checkout;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -14,15 +15,18 @@ public sealed class StripeWebhookController : ControllerBase
 {
     private readonly NpgsqlDataSource _dataSource;
     private readonly IConfiguration _configuration;
+    private readonly AzureCommunicationEmailService _emailService;
     private readonly ILogger<StripeWebhookController> _logger;
 
     public StripeWebhookController(
         NpgsqlDataSource dataSource,
         IConfiguration configuration,
+        AzureCommunicationEmailService emailService,
         ILogger<StripeWebhookController> logger)
     {
         _dataSource = dataSource;
         _configuration = configuration;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -88,6 +92,7 @@ public sealed class StripeWebhookController : ControllerBase
             return Ok();
         }
 
+        Guid? orderIdForConfirmationEmail = null;
         try
         {
             if (stripeEvent.Type == "checkout.session.completed")
@@ -98,7 +103,11 @@ public sealed class StripeWebhookController : ControllerBase
                 }
                 else
                 {
-                    await ProcessCheckoutSessionCompletedAsync(conn, tx, session, cancellationToken);
+                    orderIdForConfirmationEmail = await ProcessCheckoutSessionCompletedAsync(
+                        conn,
+                        tx,
+                        session,
+                        cancellationToken);
                 }
             }
 
@@ -124,10 +133,15 @@ public sealed class StripeWebhookController : ControllerBase
             throw;
         }
 
+        if (orderIdForConfirmationEmail is Guid orderId)
+        {
+            await TrySendOrderConfirmationEmailAsync(orderId, cancellationToken);
+        }
+
         return Ok();
     }
 
-    private async Task ProcessCheckoutSessionCompletedAsync(
+    private async Task<Guid?> ProcessCheckoutSessionCompletedAsync(
         NpgsqlConnection conn,
         NpgsqlTransaction tx,
         Session session,
@@ -146,42 +160,73 @@ public sealed class StripeWebhookController : ControllerBase
         if (string.IsNullOrEmpty(orderIdStr) || !Guid.TryParse(orderIdStr, out var orderId))
         {
             _logger.LogWarning("Checkout session missing order_id metadata or client reference.");
-            return;
+            return null;
         }
 
         var sessionId = session.Id;
         var paymentIntentId = session.PaymentIntentId;
 
-        await using (var load = conn.CreateCommand())
+        await using var load = conn.CreateCommand();
+        load.Transaction = tx;
+        load.CommandText = """
+                           SELECT store_id
+                           FROM app.orders
+                           WHERE id = @oid
+                           LIMIT 1;
+                           """;
+        load.Parameters.AddWithValue("oid", orderId);
+        var storeObj = await load.ExecuteScalarAsync(ct);
+        if (storeObj is null or DBNull)
         {
-            load.Transaction = tx;
-            load.CommandText = """
-                               SELECT store_id
-                               FROM app.orders
-                               WHERE id = @oid
-                               LIMIT 1;
-                               """;
-            load.Parameters.AddWithValue("oid", orderId);
-            var storeObj = await load.ExecuteScalarAsync(ct);
-            if (storeObj is null or DBNull)
+            _logger.LogWarning("Order {OrderId} not found for Stripe session.", orderId);
+            return null;
+        }
+
+        var storeId = (Guid)storeObj;
+        var (found, newlyCompleted) = await CheckoutOrderPersistence.TryCompletePaidOrderAsync(
+            conn,
+            tx,
+            orderId,
+            sessionId,
+            paymentIntentId,
+            ct);
+
+        if (!found)
+        {
+            return null;
+        }
+
+        if (newlyCompleted)
+        {
+            await CheckoutStock.ApplyStockOutForOrderAsync(conn, tx, orderId, storeId, ct);
+            return orderId;
+        }
+
+        return null;
+    }
+
+    private async Task TrySendOrderConfirmationEmailAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        if (!_emailService.IsEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var conn = await _dataSource.OpenConnectionAsync(cancellationToken);
+            var data = await CheckoutOrderPersistence.GetOrderConfirmationEmailDataAsync(conn, orderId, cancellationToken);
+            if (data is null)
             {
-                _logger.LogWarning("Order {OrderId} not found for Stripe session.", orderId);
+                _logger.LogWarning("Order {OrderId} not found for confirmation email.", orderId);
                 return;
             }
 
-            var storeId = (Guid)storeObj;
-            var ok = await CheckoutOrderPersistence.TryCompletePaidOrderAsync(
-                conn,
-                tx,
-                orderId,
-                sessionId,
-                paymentIntentId,
-                ct);
-
-            if (ok)
-            {
-                await CheckoutStock.ApplyStockOutForOrderAsync(conn, tx, orderId, storeId, ct);
-            }
+            await _emailService.SendOrderConfirmationEmailAsync(data, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Order confirmation email failed for order {OrderId}.", orderId);
         }
     }
 }
