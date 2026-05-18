@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { UserAvatarCircle } from '../auth/UserAvatarCircle'
 
 type NavbarUserMenuProps = {
   isAuthenticated: boolean
@@ -7,6 +8,8 @@ type NavbarUserMenuProps = {
   lastName?: string
   role?: string
   initials: string
+  avatarImageUrl?: string | null
+  isAvatarBusy?: boolean
   isUserMenuOpen: boolean
   onToggleUserMenu: () => void
   isSigningOut: boolean
@@ -21,6 +24,8 @@ export function NavbarUserMenu({
   lastName,
   role,
   initials,
+  avatarImageUrl = null,
+  isAvatarBusy = false,
   isUserMenuOpen,
   onToggleUserMenu,
   isSigningOut,
@@ -33,11 +38,16 @@ export function NavbarUserMenu({
         <button
           type="button"
           onClick={onToggleUserMenu}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-600 text-sm font-semibold tracking-widest text-white hover:bg-sky-700"
+          className="rounded-full hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
           aria-expanded={isUserMenuOpen}
           aria-label={userEmail ? `Open menu for ${userEmail}` : 'Open user menu'}
         >
-          {initials}
+          <UserAvatarCircle
+            imageUrl={avatarImageUrl}
+            initials={initials}
+            isBusy={isAvatarBusy}
+            ariaLabel={userEmail ? `Profile photo for ${userEmail}` : 'Profile photo'}
+          />
         </button>
         {isUserMenuOpen && (
           <div className="absolute right-0 z-50 mt-2 w-64 rounded-md border border-slate-200 bg-white shadow-lg">

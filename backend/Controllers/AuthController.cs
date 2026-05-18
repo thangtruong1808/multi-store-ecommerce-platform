@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using backend.Auth;
+using backend.Products;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -21,6 +22,9 @@ public partial class AuthController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly AzureCommunicationEmailService _emailService;
     private readonly AzureCommunicationEmailOptions _emailOptions;
+    private readonly AzureProductBlobService _blobService;
+    private readonly ProductImageProcessor _imageProcessor;
+    private readonly AzureProductBlobOptions _blobOptions;
     private static readonly (string Code, string Description)[] DefaultPermissions =
     [
         ("dashboard:view", "View dashboard pages and widgets"),
@@ -74,12 +78,18 @@ public partial class AuthController : ControllerBase
         NpgsqlDataSource dataSource,
         IConfiguration configuration,
         AzureCommunicationEmailService emailService,
-        IOptions<AzureCommunicationEmailOptions> emailOptions)
+        IOptions<AzureCommunicationEmailOptions> emailOptions,
+        AzureProductBlobService blobService,
+        ProductImageProcessor imageProcessor,
+        IOptions<AzureProductBlobOptions> blobOptions)
     {
         _dataSource = dataSource;
         _configuration = configuration;
         _emailService = emailService;
         _emailOptions = emailOptions.Value;
+        _blobService = blobService;
+        _imageProcessor = imageProcessor;
+        _blobOptions = blobOptions.Value;
     }
 
     private string GenerateAccessToken(Guid userId, string email, string role)

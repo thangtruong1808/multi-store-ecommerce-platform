@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { buildProductMediaUrl, getConfiguredProductMediaBaseUrl, loadProductMediaPublicBaseUrl } from '../utils/productMediaUrl'
 import { useLocation, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { logoutUser } from '../features/auth/authSlice'
@@ -25,13 +26,20 @@ type NavbarProps = {
   firstName?: string
   lastName?: string
   role?: string
+  avatarS3Key?: string | null
 }
 
-function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: NavbarProps) {
+function Navbar({ isAuthenticated, userEmail, firstName, lastName, role, avatarS3Key }: NavbarProps) {
   const dispatch = useAppDispatch()
   const cartCount = useAppSelector((s) => s.cart.items.reduce((n, i) => n + i.quantity, 0))
   const wishlistCount = useAppSelector((s) => s.wishlist.ids.length)
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || 'U'
+  const [mediaBaseUrl, setMediaBaseUrl] = useState<string | null>(() => getConfiguredProductMediaBaseUrl())
+  const avatarImageUrl = useMemo(() => {
+    const key = avatarS3Key?.trim() ?? ''
+    if (!key || !mediaBaseUrl) return null
+    return buildProductMediaUrl(key, mediaBaseUrl)
+  }, [avatarS3Key, mediaBaseUrl])
   const [categories, setCategories] = useState<PublicCategory[]>([])
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false)
   const [isMegaOpen, setIsMegaOpen] = useState(false)
@@ -45,6 +53,13 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
   const [isSearchSubmitting, setIsSearchSubmitting] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    void loadProductMediaPublicBaseUrl().then((base) => {
+      if (base) setMediaBaseUrl(base)
+    })
+  }, [])
+
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
@@ -256,6 +271,7 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
           lastName={lastName}
           role={role}
           initials={initials}
+          avatarImageUrl={avatarImageUrl}
           isUserMenuOpen={isUserMenuOpen}
           onToggleUserMenu={() => setIsUserMenuOpen((prev) => !prev)}
           isSigningOut={isSigningOut}
@@ -276,6 +292,7 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role }: Navba
             lastName={lastName}
             role={role}
             initials={initials}
+            avatarImageUrl={avatarImageUrl}
             isUserMenuOpen={isUserMenuOpen}
             onToggleUserMenu={() => setIsUserMenuOpen((prev) => !prev)}
             isSigningOut={isSigningOut}

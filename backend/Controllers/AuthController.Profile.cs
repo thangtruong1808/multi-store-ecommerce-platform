@@ -1,4 +1,5 @@
 using BCrypt.Net;
+using backend.Products;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -91,7 +92,7 @@ public partial class AuthController
         var state = request.State?.Trim();
         var postalCode = request.PostalCode?.Trim();
         var country = request.Country?.Trim();
-        var avatarS3Key = request.AvatarS3Key?.Trim();
+        var avatarS3KeyFromRequest = request.AvatarS3Key?.Trim();
         var currentPassword = request.CurrentPassword?.Trim();
         var newPassword = request.NewPassword?.Trim();
 
@@ -128,6 +129,12 @@ public partial class AuthController
             errors["mobile"] = "Mobile must be at least 8 characters.";
         }
 
+        if (!string.IsNullOrWhiteSpace(avatarS3KeyFromRequest)
+            && !AvatarMediaKeyRules.CanUseOnProfileUpdate(avatarS3KeyFromRequest, userId))
+        {
+            errors["avatarS3Key"] = "Avatar image key is invalid. Upload a new profile photo.";
+        }
+
         var wantsToChangePassword = !string.IsNullOrWhiteSpace(currentPassword) || !string.IsNullOrWhiteSpace(newPassword);
         if (wantsToChangePassword && string.IsNullOrWhiteSpace(currentPassword))
         {
@@ -151,6 +158,19 @@ public partial class AuthController
         try
         {
             await using var conn = await _dataSource.OpenConnectionAsync();
+
+            string? previousAvatarS3Key = null;
+            await using (var avatarCmd = conn.CreateCommand())
+            {
+                avatarCmd.CommandText = "SELECT avatar_s3_key FROM app.users WHERE id = @user_id LIMIT 1;";
+                avatarCmd.Parameters.AddWithValue("user_id", userId);
+                var existingAvatar = await avatarCmd.ExecuteScalarAsync();
+                previousAvatarS3Key = existingAvatar is string key && !string.IsNullOrWhiteSpace(key) ? key : null;
+            }
+
+            var avatarS3Key = string.IsNullOrWhiteSpace(avatarS3KeyFromRequest)
+                ? previousAvatarS3Key
+                : avatarS3KeyFromRequest;
 
             string? newPasswordHash = null;
             if (wantsToChangePassword)
@@ -231,6 +251,9 @@ public partial class AuthController
             {
                 return NotFound(new { message = "User profile not found." });
             }
+
+            var savedAvatarKey = reader.IsDBNull(4) ? null : reader.GetString(4);
+            await AvatarMediaHelper.DeleteOrphanedBlobAsync(_blobService, previousAvatarS3Key, savedAvatarKey);
 
             return Ok(new
             {

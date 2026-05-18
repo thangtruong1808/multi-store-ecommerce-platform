@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { FiLogOut, FiSave } from 'react-icons/fi'
+import { FiLogOut, FiRefreshCw, FiSave } from 'react-icons/fi'
 import { useAppDispatch, useAppSelector } from '../app/hooks'
-import { clearAuthErrors, logoutUser, updateProfile } from '../features/auth/authSlice'
+import { clearAuthErrors, logoutUser, patchAuthUser, updateProfile } from '../features/auth/authSlice'
+import { UserAvatarCircle } from '../components/auth/UserAvatarCircle'
+import { uploadProfileAvatar } from '../features/auth/profileAvatarApi'
+import { buildProductMediaUrl, getConfiguredProductMediaBaseUrl, loadProductMediaPublicBaseUrl } from '../utils/productMediaUrl'
 
 const profileSchema = z.object({
   firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
@@ -71,7 +74,9 @@ function ProfilePage() {
   })
   const [clientErrors, setClientErrors] = useState<Record<string, string | undefined>>({})
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false)
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null)
+  const [mediaBaseUrl, setMediaBaseUrl] = useState<string | null>(() => getConfiguredProductMediaBaseUrl())
 
   useEffect(() => {
     if (!user) return
@@ -130,12 +135,30 @@ function ProfilePage() {
   )
 
   useEffect(() => {
+    setAvatarPreviewUrl(null)
+    void loadProductMediaPublicBaseUrl().then((base) => {
+      if (base) setMediaBaseUrl(base)
+    })
+  }, [])
+
+  useEffect(() => {
     return () => {
-      if (avatarPreviewUrl) {
+      if (avatarPreviewUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(avatarPreviewUrl)
       }
     }
   }, [avatarPreviewUrl])
+
+  const persistedAvatarUrl = useMemo(() => {
+    const key = formData.avatarS3Key.trim() || user?.avatarS3Key?.trim() || ''
+    if (!key || !mediaBaseUrl) return null
+    return buildProductMediaUrl(key, mediaBaseUrl)
+  }, [formData.avatarS3Key, mediaBaseUrl, user?.avatarS3Key])
+
+  const avatarDisplayUrl = avatarPreviewUrl ?? persistedAvatarUrl
+  const profileInitials =
+    `${formData.firstName?.[0] ?? user?.firstName?.[0] ?? ''}${formData.lastName?.[0] ?? user?.lastName?.[0] ?? ''}`.toUpperCase() ||
+    'U'
 
   if (!isAuthenticated) {
     return <Navigate to="/signin" replace />
@@ -149,20 +172,46 @@ function ProfilePage() {
     dispatch(clearAuthErrors())
   }
 
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    event.target.value = ''
     if (!file) return
 
     const previewUrl = URL.createObjectURL(file)
     setAvatarPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
       return previewUrl
     })
-
-    setFormData((prev) => ({ ...prev, avatarS3Key: `local-upload/${file.name}` }))
     setClientErrors((prev) => ({ ...prev, avatarS3Key: undefined }))
     setSaveSuccessMessage(null)
     dispatch(clearAuthErrors())
+
+    setIsAvatarUploading(true)
+    try {
+      const result = await uploadProfileAvatar(file)
+      const savedKey = result.avatarS3Key ?? result.blobKey
+      setFormData((prev) => ({ ...prev, avatarS3Key: savedKey }))
+      setAvatarPreviewUrl((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+        return null
+      })
+      dispatch(patchAuthUser({ avatarS3Key: savedKey }))
+      if (result.publicUrl.endsWith(result.blobKey)) {
+        const base = result.publicUrl.slice(0, -(result.blobKey.length + 1))
+        setMediaBaseUrl((prev) => prev ?? base)
+      }
+    } catch (err) {
+      setAvatarPreviewUrl((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+        return null
+      })
+      setClientErrors((prev) => ({
+        ...prev,
+        avatarS3Key: err instanceof Error ? err.message : 'Unable to upload profile photo.',
+      }))
+    } finally {
+      setIsAvatarUploading(false)
+    }
   }
 
   const onLogout = async () => {
@@ -193,7 +242,13 @@ function ProfilePage() {
     if (updateProfile.fulfilled.match(result)) {
       setClientErrors({})
       setSaveSuccessMessage('Profile saved successfully.')
-      setFormData((prev) => ({ ...prev, currentPassword: '', newPassword: '' }))
+      setFormData((prev) => ({
+        ...prev,
+        avatarS3Key: result.payload.avatarS3Key ?? '',
+        currentPassword: '',
+        newPassword: '',
+      }))
+      setAvatarPreviewUrl(null)
     }
   }
 
@@ -285,39 +340,34 @@ function ProfilePage() {
           </div>
           <div>
             <label htmlFor="avatarImage" className="mb-1 block text-sm font-medium text-slate-700">
-              Choose an image from local <span className="text-slate-400">(optional)</span>
+              Profile photo <span className="text-slate-400">(optional)</span>
             </label>
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-300 bg-slate-100">
-                {avatarPreviewUrl ? (
-                  <img src={avatarPreviewUrl} alt="Avatar preview" className="h-full w-full object-cover" />
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className="h-6 w-6 text-slate-400"
-                    aria-hidden="true"
-                  >
-                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6z" />
-                    <path
-                      fillRule="evenodd"
-                      d="M.458 16.042A8 8 0 1119.542 16.042A8.97 8.97 0 0010 14a8.97 8.97 0 00-9.542 2.042z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )}
-              </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <UserAvatarCircle
+                imageUrl={avatarDisplayUrl}
+                initials={profileInitials}
+                sizeClassName="h-14 w-14"
+                textClassName="text-base"
+                isBusy={isAvatarUploading}
+                ariaLabel="Profile photo preview"
+              />
               <input
                 id="avatarImage"
                 name="avatarImage"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={handleAvatarChange}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none ring-slate-200 focus:ring"
+                disabled={isAvatarUploading || actionLoading}
+                className="w-full min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-200 focus:ring disabled:cursor-not-allowed disabled:opacity-70"
               />
             </div>
-            <p className="mt-1 text-xs text-slate-500">{formData.avatarS3Key ? `Selected: ${formData.avatarS3Key}` : 'No file selected'}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {isAvatarUploading
+                ? 'Uploading to Azure…'
+                : formData.avatarS3Key
+                  ? 'Photo saved to your profile.'
+                  : 'JPEG, PNG, or WebP (max 8 MB).'}
+            </p>
             {mergedErrors.avatarS3Key && <p className="mt-1 text-xs text-red-600">{mergedErrors.avatarS3Key}</p>}
           </div>
         </div>
@@ -443,7 +493,7 @@ function ProfilePage() {
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
             type="submit"
-            disabled={actionLoading || !hasFormChanges}
+            disabled={actionLoading || isAvatarUploading || !hasFormChanges}
             className="flex items-center gap-2 rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {actionLoading && (
@@ -456,7 +506,7 @@ function ProfilePage() {
           <button
             type="button"
             onClick={onLogout}
-            disabled={actionLoading}
+            disabled={actionLoading || isAvatarUploading}
             className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <span className="inline-flex items-center gap-2">

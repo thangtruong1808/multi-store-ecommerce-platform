@@ -51,6 +51,7 @@ function App() {
           firstName={user?.firstName}
           lastName={user?.lastName}
           role={user?.role}
+          avatarS3Key={user?.avatarS3Key}
         />
       )}
       <Routes>

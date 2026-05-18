@@ -16,6 +16,7 @@ type NavbarDesktopTopRowProps = {
   lastName?: string
   role?: string
   initials: string
+  avatarImageUrl?: string | null
   isUserMenuOpen: boolean
   onToggleUserMenu: () => void
   isSigningOut: boolean
@@ -35,6 +36,7 @@ export function NavbarDesktopTopRow({
   lastName,
   role,
   initials,
+  avatarImageUrl = null,
   isUserMenuOpen,
   onToggleUserMenu,
   isSigningOut,
@@ -108,6 +110,7 @@ export function NavbarDesktopTopRow({
             lastName={lastName}
             role={role}
             initials={initials}
+            avatarImageUrl={avatarImageUrl}
             isUserMenuOpen={isUserMenuOpen}
             onToggleUserMenu={onToggleUserMenu}
             isSigningOut={isSigningOut}

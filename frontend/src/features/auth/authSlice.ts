@@ -8,7 +8,7 @@ import {
   signIn,
   updateProfile,
 } from './authThunks'
-import type { AuthState } from './authTypes'
+import type { AuthState, AuthUser } from './authTypes'
 
 export type { ApiErrorPayload, AuthUser } from './authTypes'
 export {
@@ -42,6 +42,11 @@ const authSlice = createSlice({
     clearAuthErrors: (state) => {
       state.error = null
       state.fieldErrors = {}
+    },
+    patchAuthUser: (state, action: { payload: Partial<AuthUser> }) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload }
+      }
     },
   },
   extraReducers: (builder) => {
@@ -137,5 +142,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { clearAuthState, clearAuthErrors } = authSlice.actions
+export const { clearAuthState, clearAuthErrors, patchAuthUser } = authSlice.actions
 export default authSlice.reducer
