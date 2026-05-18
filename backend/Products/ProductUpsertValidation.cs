@@ -18,7 +18,12 @@ internal static class ProductUpsertValidation
         List<string> ImageS3Keys,
         List<string> VideoUrls,
         bool IsClearance,
-        bool IsRefurbished)> ValidateAndNormalizeAsync(NpgsqlDataSource dataSource, UpsertProductRequest request)
+        bool IsRefurbished)> ValidateAndNormalizeAsync(
+        NpgsqlDataSource dataSource,
+        UpsertProductRequest request,
+        Guid? actorUserId = null,
+        Guid? existingProductId = null,
+        bool isCreate = false)
     {
         var errors = new Dictionary<string, string>();
         var sku = (request.Sku ?? string.Empty).Trim().ToUpperInvariant();
@@ -51,6 +56,24 @@ internal static class ProductUpsertValidation
         if (imageS3Keys.Count > 4)
         {
             errors["imageS3Keys"] = "Maximum 4 product images are allowed.";
+        }
+
+        if (imageS3Keys.Count > 0)
+        {
+            var validatedKeys = ProductMediaKeyRules.ValidateKeysForUpsert(
+                imageS3Keys,
+                actorUserId,
+                existingProductId,
+                isCreate,
+                out var keyError);
+            if (keyError is not null)
+            {
+                errors["imageS3Keys"] = keyError;
+            }
+            else
+            {
+                imageS3Keys = validatedKeys;
+            }
         }
 
         for (var i = 0; i < videoUrls.Count; i++)

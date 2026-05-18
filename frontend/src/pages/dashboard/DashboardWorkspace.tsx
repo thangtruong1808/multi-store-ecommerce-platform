@@ -103,7 +103,11 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
           level2Options={p.level2Options}
           level3Options={p.level3Options}
           isProductCategoriesLoading={p.isProductCategoriesLoading}
-          handleProductImageChange={p.handleProductImageChange}
+          handleProductImageFile={p.handleProductImageFile}
+          handleRemoveProductImage={p.handleRemoveProductImage}
+          uploadingImageIndexes={p.uploadingImageIndexes}
+          isProductImageUploading={p.isProductImageUploading}
+          productMediaBaseUrl={p.productMediaBaseUrl}
           handleProductVideoChange={p.handleProductVideoChange}
           hasProductChanges={model.hasProductChanges}
           isProductSaving={p.isProductSaving}

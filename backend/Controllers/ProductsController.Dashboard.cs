@@ -322,13 +322,18 @@ public partial class ProductsController
             return Forbid();
         }
 
-        var normalized = await ProductUpsertValidation.ValidateAndNormalizeAsync(_dataSource, request);
+        var actorUserId = GetCurrentUserId();
+        var normalized = await ProductUpsertValidation.ValidateAndNormalizeAsync(
+            _dataSource,
+            request,
+            actorUserId,
+            existingProductId: null,
+            isCreate: true);
         if (normalized.Errors.Count > 0)
         {
             return BadRequest(new { message = "Validation failed.", errors = normalized.Errors });
         }
 
-        var actorUserId = GetCurrentUserId();
         await using var conn = await _dataSource.OpenConnectionAsync();
         var (storeErrors, effectiveStoreIds) = await ProductStoreScope.ResolveForUpsert(
             currentUserRole,
@@ -382,7 +387,17 @@ public partial class ProductsController
             var updatedAt = reader.GetDateTime(2);
             await reader.DisposeAsync();
 
-            await ProductPersistence.ReplaceProductImagesAsync(conn, tx, productId, normalized.ImageS3Keys);
+            var imageKeysToSave = normalized.ImageS3Keys;
+            if (_blobService.IsEnabled && actorUserId is not null && imageKeysToSave.Count > 0)
+            {
+                imageKeysToSave = await ProductMediaHelper.ResolveImageKeysForSaveAsync(
+                    _blobService,
+                    imageKeysToSave,
+                    productId,
+                    actorUserId.Value);
+            }
+
+            await ProductPersistence.ReplaceProductImagesAsync(conn, tx, productId, imageKeysToSave);
             if (hasProductVideosTable)
             {
                 await ProductPersistence.ReplaceProductVideosAsync(conn, tx, productId, normalized.VideoUrls);
@@ -414,7 +429,7 @@ public partial class ProductsController
                 categoryId = normalized.CategoryId,
                 isClearance = normalized.IsClearance,
                 isRefurbished = normalized.IsRefurbished,
-                imageS3Keys = normalized.ImageS3Keys,
+                imageS3Keys = imageKeysToSave,
                 videoUrls = normalized.VideoUrls,
                 storeIds = effectiveStoreIds,
                 storeStock = storeStockPayload,
@@ -443,14 +458,20 @@ public partial class ProductsController
             return Forbid();
         }
 
-        var normalized = await ProductUpsertValidation.ValidateAndNormalizeAsync(_dataSource, request);
+        var actorUserId = GetCurrentUserId();
+        var normalized = await ProductUpsertValidation.ValidateAndNormalizeAsync(
+            _dataSource,
+            request,
+            actorUserId,
+            existingProductId: id,
+            isCreate: false);
         if (normalized.Errors.Count > 0)
         {
             return BadRequest(new { message = "Validation failed.", errors = normalized.Errors });
         }
 
-        var actorUserId = GetCurrentUserId();
         await using var conn = await _dataSource.OpenConnectionAsync();
+        var previousImageKeys = await ProductPersistence.GetProductImagesAsync(conn, id);
         var (storeErrors, effectiveStoreIds) = await ProductStoreScope.ResolveForUpsert(
             currentUserRole,
             actorUserId,
@@ -522,7 +543,17 @@ public partial class ProductsController
             var updatedAt = reader.GetDateTime(1);
             await reader.DisposeAsync();
 
-            await ProductPersistence.ReplaceProductImagesAsync(conn, tx, id, normalized.ImageS3Keys);
+            var imageKeysToSave = normalized.ImageS3Keys;
+            if (_blobService.IsEnabled && actorUserId is not null && imageKeysToSave.Count > 0)
+            {
+                imageKeysToSave = await ProductMediaHelper.ResolveImageKeysForSaveAsync(
+                    _blobService,
+                    imageKeysToSave,
+                    id,
+                    actorUserId.Value);
+            }
+
+            await ProductPersistence.ReplaceProductImagesAsync(conn, tx, id, imageKeysToSave);
             if (hasProductVideosTable)
             {
                 await ProductPersistence.ReplaceProductVideosAsync(conn, tx, id, normalized.VideoUrls);
@@ -550,6 +581,8 @@ public partial class ProductsController
 
             await tx.CommitAsync();
 
+            await ProductMediaHelper.DeleteOrphanedBlobsAsync(_blobService, previousImageKeys, imageKeysToSave);
+
             var storeIdsResponse = await ProductPersistence.GetStoreIdsForProductAsync(conn, id);
             var stockRowsUpdate = await ProductPersistence.GetStoreStockRowsForProductAsync(conn, id);
             if (!ProductStoreScope.IsAdminRole(currentUserRole) && actorUserId is not null)
@@ -572,7 +605,7 @@ public partial class ProductsController
                 categoryId = normalized.CategoryId,
                 isClearance = normalized.IsClearance,
                 isRefurbished = normalized.IsRefurbished,
-                imageS3Keys = normalized.ImageS3Keys,
+                imageS3Keys = imageKeysToSave,
                 videoUrls = normalized.VideoUrls,
                 storeIds = storeIdsResponse,
                 storeStock = storeStockPayloadUpdate,

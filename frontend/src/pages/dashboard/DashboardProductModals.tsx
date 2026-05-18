@@ -20,7 +20,11 @@ type DashboardProductModalsProps = {
   level2Options: CategoryParentOption[]
   level3Options: CategoryParentOption[]
   isProductCategoriesLoading: boolean
-  handleProductImageChange: (index: number, value: string) => void
+  handleProductImageFile: (index: number, file: File) => void | Promise<void>
+  handleRemoveProductImage: (index: number) => void | Promise<void>
+  uploadingImageIndexes: Record<number, boolean>
+  isProductImageUploading: boolean
+  productMediaBaseUrl: string | null
   handleProductVideoChange: (index: number, value: string) => void
   hasProductChanges: boolean
   isProductSaving: boolean
@@ -47,7 +51,11 @@ export function DashboardProductModals({
   level2Options,
   level3Options,
   isProductCategoriesLoading,
-  handleProductImageChange,
+  handleProductImageFile,
+  handleRemoveProductImage,
+  uploadingImageIndexes,
+  isProductImageUploading,
+  productMediaBaseUrl,
   handleProductVideoChange,
   hasProductChanges,
   isProductSaving,
@@ -75,7 +83,11 @@ export function DashboardProductModals({
           level2Options={level2Options}
           level3Options={level3Options}
           isProductCategoriesLoading={isProductCategoriesLoading}
-          handleProductImageChange={handleProductImageChange}
+          handleProductImageFile={handleProductImageFile}
+          handleRemoveProductImage={handleRemoveProductImage}
+          uploadingImageIndexes={uploadingImageIndexes}
+          isProductImageUploading={isProductImageUploading}
+          productMediaBaseUrl={productMediaBaseUrl}
           handleProductVideoChange={handleProductVideoChange}
           hasProductChanges={hasProductChanges}
           isProductSaving={isProductSaving}

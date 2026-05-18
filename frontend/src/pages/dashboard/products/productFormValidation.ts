@@ -13,7 +13,7 @@ export const PRODUCT_FIELD_HINTS = {
   category: 'Choose Level 1, then Level 2, then Level 3. Products must sit under a Level 3 category.',
   stores: 'Pick which stores sell this product. Store managers only see stores they are assigned to.',
   storeStock: 'Use whole numbers from 0 up to 999,999 per store.',
-  images: 'Up to 4 optional image keys (storage paths after upload). Leave blank rows out or remove them.',
+  images: 'Up to 4 photos (JPEG, PNG, or WebP). Images are resized on the server and stored in Azure Blob Storage.',
   videos: 'Optional. Each line must be a full URL starting with https:// or http://',
 } as const
 

@@ -1,5 +1,6 @@
 using System.Security.Claims; // Claims
 using System.Text; // Encoding
+using backend.Products;
 using Microsoft.AspNetCore.Authentication.JwtBearer; // JWT authentication
 using Microsoft.IdentityModel.Tokens; // JWT token validation
 using Npgsql; // PostgreSQL database connection
@@ -31,6 +32,23 @@ if (string.IsNullOrWhiteSpace(connectionBuilder.Password))
     throw new InvalidOperationException("PostgreSQL password is missing. Please set ConnectionStrings__Default password in backend/.env.");
 }
 builder.Services.AddSingleton(new NpgsqlDataSourceBuilder(defaultConnection).Build()); // Add the PostgreSQL data source builder to the services
+
+var azureStorageEnabled = bool.TryParse(builder.Configuration["AZURE_STORAGE_ENABLED"], out var azureEnabledFlag) && azureEnabledFlag;
+var azureMaxUploadBytes = long.TryParse(builder.Configuration["AZURE_STORAGE_MAX_UPLOAD_BYTES"], out var maxUploadBytes)
+    ? maxUploadBytes
+    : 8 * 1024 * 1024;
+builder.Services.Configure<AzureProductBlobOptions>(options =>
+{
+    options.Enabled = azureStorageEnabled;
+    options.ConnectionString = builder.Configuration["AZURE_STORAGE_CONNECTION_STRING"] ?? string.Empty;
+    options.ContainerName = string.IsNullOrWhiteSpace(builder.Configuration["AZURE_STORAGE_CONTAINER_NAME"])
+        ? "product-photos"
+        : builder.Configuration["AZURE_STORAGE_CONTAINER_NAME"]!.Trim();
+    options.PublicBaseUrl = (builder.Configuration["AZURE_STORAGE_PUBLIC_BASE_URL"] ?? string.Empty).Trim().TrimEnd('/');
+    options.MaxUploadBytes = azureMaxUploadBytes;
+});
+builder.Services.AddSingleton<AzureProductBlobService>();
+builder.Services.AddSingleton<ProductImageProcessor>();
 
 // --- Authentication and authorization (step 2: add after the API + DB are in place) ---
 var jwtSecret = builder.Configuration["JWT_SECRET"] ?? string.Empty; // Get the JWT secret from the configuration

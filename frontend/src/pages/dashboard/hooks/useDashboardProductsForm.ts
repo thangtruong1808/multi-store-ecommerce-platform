@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAppSelector } from '../../../app/hooks'
 import { API_BASE_URL } from '../../../features/auth/authConstants'
 import { executeProductSoftDelete } from '../products/executeProductDelete'
+import { deleteProductImage, uploadProductImage } from '../products/productMediaApi'
 import { executeProductUpsert } from '../products/executeProductUpsert'
 import { fetchWithAutoRefresh } from '../fetchDashboardApi'
+import { isStagingBlobKey, loadProductMediaPublicBaseUrl } from '../../../utils/productMediaUrl'
 import { computeHasProductChanges } from '../dashboardDerivedFlags'
 import type {
   CategoryParentOption,
@@ -68,6 +70,21 @@ export function useDashboardProductsForm(
 
   const [managedStores, setManagedStores] = useState<ManagedStoreOption[]>([])
   const [isManagedStoresLoading, setIsManagedStoresLoading] = useState(false)
+  const [uploadingImageIndexes, setUploadingImageIndexes] = useState<Record<number, boolean>>({})
+  const [productMediaBaseUrl, setProductMediaBaseUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (activeFeature !== 'products' || !dashboardApiReady) {
+      return
+    }
+    let mounted = true
+    void loadProductMediaPublicBaseUrl().then((base) => {
+      if (mounted) setProductMediaBaseUrl(base)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [activeFeature, dashboardApiReady])
 
   useEffect(() => {
     if (activeFeature !== 'products' || !dashboardApiReady) {
@@ -152,6 +169,7 @@ export function useDashboardProductsForm(
   const closeProductForm = () => {
     setIsProductFormOpen(false)
     setEditingProduct(null)
+    setUploadingImageIndexes({})
     resetProductForm()
   }
 
@@ -253,12 +271,63 @@ export function useDashboardProductsForm(
     }
   }
 
-  const handleProductImageChange = (index: number, value: string) => {
+  const handleProductImageFile = async (index: number, file: File) => {
+    setUploadingImageIndexes((prev) => ({ ...prev, [index]: true }))
+    setInlineStatusMessage(null)
+    try {
+      const result = await uploadProductImage(file, editingProduct?.id ?? null)
+      setProductForm((prev) => {
+        const nextKeys = [...prev.imageS3Keys]
+        while (nextKeys.length <= index) {
+          nextKeys.push('')
+        }
+        nextKeys[index] = result.blobKey
+        return { ...prev, imageS3Keys: nextKeys }
+      })
+      if (result.publicUrl.endsWith(result.blobKey)) {
+        const base = result.publicUrl.slice(0, -(result.blobKey.length + 1))
+        setProductMediaBaseUrl((prev) => prev ?? base)
+      }
+    } catch (error) {
+      setInlineStatusType('error')
+      setInlineStatusMessage(error instanceof Error ? error.message : 'Unable to upload image.')
+    } finally {
+      setUploadingImageIndexes((prev) => {
+        const next = { ...prev }
+        delete next[index]
+        return next
+      })
+    }
+  }
+
+  const handleRemoveProductImage = async (index: number) => {
+    const key = productForm.imageS3Keys[index]?.trim() ?? ''
+    if (key && isStagingBlobKey(key)) {
+      try {
+        await deleteProductImage(key)
+      } catch (error) {
+        setInlineStatusType('error')
+        setInlineStatusMessage(error instanceof Error ? error.message : 'Unable to delete image from storage.')
+        return
+      }
+    }
+
     setProductForm((prev) => ({
       ...prev,
-      imageS3Keys: prev.imageS3Keys.map((item, idx) => (idx === index ? value : item)),
+      imageS3Keys: prev.imageS3Keys.filter((_, idx) => idx !== index),
     }))
+    setUploadingImageIndexes((prev) => {
+      const next: Record<number, boolean> = {}
+      Object.entries(prev).forEach(([idx, value]) => {
+        const i = Number(idx)
+        if (i < index) next[i] = value
+        else if (i > index) next[i - 1] = value
+      })
+      return next
+    })
   }
+
+  const isProductImageUploading = Object.values(uploadingImageIndexes).some(Boolean)
 
   const handleProductVideoChange = (index: number, value: string) => {
     setProductForm((prev) => ({
@@ -270,6 +339,11 @@ export function useDashboardProductsForm(
   const handleSaveProduct = async () => {
     const hasProductChanges = computeHasProductChanges(editingProduct, productForm)
     if (!hasProductChanges) return
+    if (isProductImageUploading) {
+      setInlineStatusType('info')
+      setInlineStatusMessage('Wait for photo uploads to finish before saving.')
+      return
+    }
 
     setIsProductSaving(true)
     setInlineStatusMessage(null)
@@ -340,7 +414,11 @@ export function useDashboardProductsForm(
     closeProductForm,
     openCreateProductForm,
     openEditProductForm,
-    handleProductImageChange,
+    handleProductImageFile,
+    handleRemoveProductImage,
+    uploadingImageIndexes,
+    isProductImageUploading,
+    productMediaBaseUrl,
     handleProductVideoChange,
     handleSaveProduct,
     handleDeleteProduct,

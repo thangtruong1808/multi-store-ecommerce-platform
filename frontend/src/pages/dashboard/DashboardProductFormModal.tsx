@@ -1,7 +1,8 @@
-import type { Dispatch, SetStateAction } from 'react'
-import { useEffect, useMemo, useState } from 'react'
-import { FiCheck, FiPackage, FiPlus, FiX } from 'react-icons/fi'
+import type { ChangeEvent, Dispatch, SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { FiCheck, FiImage, FiPackage, FiPlus, FiUpload, FiX } from 'react-icons/fi'
 
+import { buildProductMediaUrl } from '../../utils/productMediaUrl'
 import { DashboardSpinner } from './DashboardSpinner'
 import type { CategoryParentOption, ManagedStoreOption, ProductDetail, ProductFormState } from './dashboardTypes'
 import {
@@ -19,7 +20,11 @@ type DashboardProductFormModalProps = {
   level2Options: CategoryParentOption[]
   level3Options: CategoryParentOption[]
   isProductCategoriesLoading: boolean
-  handleProductImageChange: (index: number, value: string) => void
+  handleProductImageFile: (index: number, file: File) => void | Promise<void>
+  handleRemoveProductImage: (index: number) => void | Promise<void>
+  uploadingImageIndexes: Record<number, boolean>
+  isProductImageUploading: boolean
+  productMediaBaseUrl: string | null
   handleProductVideoChange: (index: number, value: string) => void
   hasProductChanges: boolean
   isProductSaving: boolean
@@ -47,7 +52,11 @@ export function DashboardProductFormModal({
   level2Options,
   level3Options,
   isProductCategoriesLoading,
-  handleProductImageChange,
+  handleProductImageFile,
+  handleRemoveProductImage,
+  uploadingImageIndexes,
+  isProductImageUploading,
+  productMediaBaseUrl,
   handleProductVideoChange,
   hasProductChanges,
   isProductSaving,
@@ -61,6 +70,8 @@ export function DashboardProductFormModal({
 }: DashboardProductFormModalProps) {
   const [fieldTouched, setFieldTouched] = useState<Record<string, boolean>>({})
   const [attemptedSave, setAttemptedSave] = useState(false)
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const isFormBusy = isProductSaving || isProductImageUploading
 
   useEffect(() => {
     setFieldTouched({})
@@ -88,6 +99,18 @@ export function DashboardProductFormModal({
     onSaveProduct()
   }
 
+  const onImageFileInputChange = (index: number, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    void handleProductImageFile(index, file)
+  }
+
+  const imageSlots =
+    productForm.imageS3Keys.length > 0
+      ? productForm.imageS3Keys
+      : []
+
   return (
     <>
       <button
@@ -99,7 +122,7 @@ export function DashboardProductFormModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
         <div
           className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6"
-          aria-busy={isProductSaving}
+          aria-busy={isFormBusy}
         >
           <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-start gap-3">
@@ -115,11 +138,15 @@ export function DashboardProductFormModal({
                   {editingProduct ? 'Edit product' : 'Create product'}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {isProductSaving ? 'Submitting to server…' : 'Manage product info, hierarchy category, images and videos.'}
+                  {isProductSaving
+                    ? 'Submitting to server…'
+                    : isProductImageUploading
+                      ? 'Uploading photo…'
+                      : 'Manage product info, hierarchy category, images and videos.'}
                 </p>
-                {isProductSaving ? (
+                {isFormBusy ? (
                   <span className="sr-only" role="status" aria-live="polite">
-                    Submitting product to server
+                    {isProductSaving ? 'Submitting product to server' : 'Uploading product photo'}
                   </span>
                 ) : null}
               </div>
@@ -508,18 +535,19 @@ export function DashboardProductFormModal({
             <div className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
               <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product images (optional, S3 keys)</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product photos (optional)</p>
                   <p className="mt-1 max-w-prose text-xs leading-snug text-slate-500">{PRODUCT_FIELD_HINTS.images}</p>
                 </div>
                 <button
                   type="button"
+                  disabled={isFormBusy}
                   onClick={() =>
                     setProductForm((prev) => ({ ...prev, imageS3Keys: [...prev.imageS3Keys, ''].slice(0, 4) }))
                   }
-                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-sky-700"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                  Add image
+                  Add photo slot
                 </button>
               </div>
               {showFieldError('images') ? (
@@ -527,34 +555,88 @@ export function DashboardProductFormModal({
                   {validationErrors.images}
                 </p>
               ) : null}
-              <div className="space-y-2">
-                {productForm.imageS3Keys.map((value, index) => (
-                  <div key={`image-${index}`} className="flex items-center gap-2">
-                    <input
-                      value={value}
-                      onChange={(event) => handleProductImageChange(index, event.target.value)}
-                      onBlur={() => setFieldTouched((prev) => ({ ...prev, images: true }))}
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
-                      placeholder={`Image key #${index + 1}`}
-                    />
-                    {productForm.imageS3Keys.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setProductForm((prev) => ({
-                            ...prev,
-                            imageS3Keys: prev.imageS3Keys.filter((_, idx) => idx !== index),
-                          }))
-                        }
-                        className="rounded-md border border-slate-300 p-2 text-slate-600 transition hover:bg-slate-50"
-                        aria-label="Remove image row"
-                      >
-                        <FiX className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    )}
+              <div className="space-y-3">
+                {imageSlots.map((blobKey, index) => {
+                  const previewUrl =
+                    blobKey && productMediaBaseUrl ? buildProductMediaUrl(blobKey, productMediaBaseUrl) : null
+                  return (
+                    <div
+                      key={`image-${index}`}
+                      className="flex flex-col gap-2 rounded-md border border-slate-100 bg-slate-50/50 p-2 sm:flex-row sm:items-center"
+                    >
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white sm:h-20 sm:w-20">
+                        {previewUrl ? (
+                          <img
+                            src={previewUrl}
+                            alt={`Product photo ${index + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-slate-400">
+                            <FiImage className="h-6 w-6" aria-hidden="true" />
+                          </div>
+                        )}
+                        {uploadingImageIndexes[index] ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                            <DashboardSpinner className="h-5 w-5" />
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        <input
+                          ref={(el) => {
+                            fileInputRefs.current[index] = el
+                          }}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          onChange={(event) => onImageFileInputChange(index, event)}
+                        />
+                        <button
+                          type="button"
+                          disabled={isFormBusy}
+                          onClick={() => fileInputRefs.current[index]?.click()}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {uploadingImageIndexes[index] ? (
+                            <>
+                              <DashboardSpinner className="h-3.5 w-3.5" />
+                              Uploading…
+                            </>
+                          ) : (
+                            <>
+                              <FiUpload className="h-3.5 w-3.5" aria-hidden="true" />
+                              {blobKey ? 'Replace photo' : 'Upload photo'}
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isFormBusy}
+                          onClick={() => void handleRemoveProductImage(index)}
+                          className="rounded-md border border-slate-300 p-2 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={`Remove photo ${index + 1}`}
+                        >
+                          <FiX className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {imageSlots.length === 0 && (
+                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                    <p className="text-xs text-slate-500">No photos yet. Add up to 4 product images.</p>
+                    <button
+                      type="button"
+                      disabled={isFormBusy}
+                      onClick={() => setProductForm((prev) => ({ ...prev, imageS3Keys: [''] }))}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Add first photo
+                    </button>
                   </div>
-                ))}
-                {productForm.imageS3Keys.length === 0 && <p className="text-xs text-slate-500">No images added.</p>}
+                )}
               </div>
             </div>
 

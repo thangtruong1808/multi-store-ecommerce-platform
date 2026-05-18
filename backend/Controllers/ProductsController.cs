@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using backend.Products;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace backend.Controllers;
@@ -14,10 +16,20 @@ namespace backend.Controllers;
 public partial class ProductsController : ControllerBase
 {
     private readonly NpgsqlDataSource _dataSource;
+    private readonly AzureProductBlobService _blobService;
+    private readonly ProductImageProcessor _imageProcessor;
+    private readonly AzureProductBlobOptions _blobOptions;
 
-    public ProductsController(NpgsqlDataSource dataSource)
+    public ProductsController(
+        NpgsqlDataSource dataSource,
+        AzureProductBlobService blobService,
+        ProductImageProcessor imageProcessor,
+        IOptions<AzureProductBlobOptions> blobOptions)
     {
         _dataSource = dataSource;
+        _blobService = blobService;
+        _imageProcessor = imageProcessor;
+        _blobOptions = blobOptions.Value;
     }
 
     private async Task<string?> GetCurrentUserRoleAsync()
