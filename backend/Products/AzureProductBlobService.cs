@@ -96,6 +96,37 @@ public sealed class AzureProductBlobService
         return promoted;
     }
 
+    public async Task<string> PromoteCategoryStagingBlobAsync(string stagingKey, Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        EnsureEnabled();
+        if (!CategoryMediaKeyRules.IsUnderCategoriesPrefix(stagingKey) ||
+            !stagingKey.Contains("/staging/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Invalid category staging blob key.", nameof(stagingKey));
+        }
+
+        var container = await GetContainerAsync(cancellationToken);
+        var destKey = CategoryMediaKeyRules.BuildCategoryKey(categoryId);
+        var source = container.GetBlobClient(stagingKey);
+        var dest = container.GetBlobClient(destKey);
+        await dest.StartCopyFromUriAsync(source.Uri, cancellationToken: cancellationToken);
+
+        var props = await dest.GetPropertiesAsync(cancellationToken: cancellationToken);
+        while (props.Value.CopyStatus is CopyStatus.Pending)
+        {
+            await Task.Delay(50, cancellationToken);
+            props = await dest.GetPropertiesAsync(cancellationToken: cancellationToken);
+        }
+
+        if (props.Value.CopyStatus != CopyStatus.Success)
+        {
+            throw new InvalidOperationException($"Failed to promote blob {stagingKey}.");
+        }
+
+        await source.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+        return destKey;
+    }
+
     public async Task<bool> ExistsAsync(string blobKey, CancellationToken cancellationToken = default)
     {
         if (!IsEnabled)

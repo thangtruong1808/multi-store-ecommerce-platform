@@ -59,6 +59,7 @@ export type CategoryItem = {
   slug: string
   level: 1 | 2 | 3
   createdAt: string
+  imageS3Key?: string | null
 }
 
 export type CategoriesResponse = {
@@ -199,4 +200,5 @@ export type CategoryFormState = {
   slug: string
   level: '1' | '2' | '3'
   parentId: 'none' | string
+  imageS3Key: string
 }

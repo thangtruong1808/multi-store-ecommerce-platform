@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Security.Claims;
 using System.Text;
+using backend.Products;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -10,16 +12,26 @@ namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CategoriesController : ControllerBase
+public partial class CategoriesController : ControllerBase
 {
     private readonly NpgsqlDataSource _dataSource;
+    private readonly AzureProductBlobService _blobService;
+    private readonly ProductImageProcessor _imageProcessor;
+    private readonly AzureProductBlobOptions _blobOptions;
 
-    public CategoriesController(NpgsqlDataSource dataSource)
+    public CategoriesController(
+        NpgsqlDataSource dataSource,
+        AzureProductBlobService blobService,
+        ProductImageProcessor imageProcessor,
+        IOptions<AzureProductBlobOptions> blobOptions)
     {
         _dataSource = dataSource;
+        _blobService = blobService;
+        _imageProcessor = imageProcessor;
+        _blobOptions = blobOptions.Value;
     }
 
-    public sealed record UpsertCategoryRequest(string Name, short Level, Guid? ParentId, string? Slug);
+    public sealed record UpsertCategoryRequest(string Name, short Level, Guid? ParentId, string? Slug, string? ImageS3Key);
 
     [AllowAnonymous]
     [HttpGet("public")]
@@ -28,7 +40,7 @@ public class CategoriesController : ControllerBase
         await using var conn = await _dataSource.OpenConnectionAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-                          SELECT id, parent_id, name, slug, level
+                          SELECT id, parent_id, name, slug, level, image_s3_key
                           FROM app.categories
                           ORDER BY level ASC, name ASC;
                           """;
@@ -37,13 +49,15 @@ public class CategoriesController : ControllerBase
         var items = new List<object>();
         while (await reader.ReadAsync())
         {
+            var level = reader.GetInt16(4);
             items.Add(new
             {
                 id = reader.GetGuid(0),
                 parentId = reader.IsDBNull(1) ? (Guid?)null : reader.GetGuid(1),
                 name = reader.GetString(2),
                 slug = reader.GetString(3),
-                level = reader.GetInt16(4)
+                level,
+                imageS3Key = level == 1 && !reader.IsDBNull(5) ? reader.GetString(5) : null
             });
         }
 
@@ -103,7 +117,8 @@ public class CategoriesController : ControllerBase
                               c.slug,
                               c.level,
                               c.created_at,
-                              parent.name AS parent_name
+                              parent.name AS parent_name,
+                              c.image_s3_key
                           FROM app.categories c
                           LEFT JOIN app.categories parent ON parent.id = c.parent_id
                           WHERE (@level IS NULL OR c.level = @level)
@@ -122,15 +137,17 @@ public class CategoriesController : ControllerBase
         var items = new List<object>();
         while (await reader.ReadAsync())
         {
+            var categoryLevel = reader.GetInt16(4);
             items.Add(new
             {
                 id = reader.GetGuid(0),
                 parentId = reader.IsDBNull(1) ? (Guid?)null : reader.GetGuid(1),
                 name = reader.GetString(2),
                 slug = reader.GetString(3),
-                level = reader.GetInt16(4),
+                level = categoryLevel,
                 createdAt = reader.GetDateTime(5),
-                parentName = reader.IsDBNull(6) ? null : reader.GetString(6)
+                parentName = reader.IsDBNull(6) ? null : reader.GetString(6),
+                imageS3Key = categoryLevel == 1 && !reader.IsDBNull(7) ? reader.GetString(7) : null
             });
         }
 
@@ -197,7 +214,7 @@ public class CategoriesController : ControllerBase
         }
 
         var actorUserId = GetCurrentUserId();
-        var normalized = await ValidateAndNormalizeAsync(request, null);
+        var normalized = await ValidateAndNormalizeAsync(request, null, actorUserId);
         if (normalized.Errors.Count > 0)
         {
             return BadRequest(new { message = "Validation failed.", errors = normalized.Errors });
@@ -206,14 +223,15 @@ public class CategoriesController : ControllerBase
         await using var conn = await _dataSource.OpenConnectionAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-                          INSERT INTO app.categories (name, slug, level, parent_id)
-                          VALUES (@name, @slug, @level, @parent_id)
-                          RETURNING id, parent_id, name, slug, level, created_at;
+                          INSERT INTO app.categories (name, slug, level, parent_id, image_s3_key)
+                          VALUES (@name, @slug, @level, @parent_id, @image_s3_key)
+                          RETURNING id, parent_id, name, slug, level, created_at, image_s3_key;
                           """;
         cmd.Parameters.AddWithValue("name", normalized.Name);
         cmd.Parameters.AddWithValue("slug", normalized.Slug);
         cmd.Parameters.AddWithValue("level", normalized.Level);
         cmd.Parameters.AddWithValue("parent_id", (object?)normalized.ParentId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("image_s3_key", DBNull.Value);
 
         try
         {
@@ -231,13 +249,15 @@ public class CategoriesController : ControllerBase
             var createdAt = reader.GetDateTime(5);
             await reader.DisposeAsync();
 
+            var imageS3Key = await PersistCategoryImageAsync(conn, id, level, normalized.ImageS3Key, actorUserId);
+
             await WriteAuditLogAsync(
                 conn,
                 actorUserId,
                 "category.created",
                 "category",
                 id,
-                new { name, slug, level, parentId }
+                new { name, slug, level, parentId, imageS3Key }
             );
 
             return Ok(new
@@ -247,7 +267,8 @@ public class CategoriesController : ControllerBase
                 name,
                 slug,
                 level,
-                createdAt
+                createdAt,
+                imageS3Key = level == 1 ? imageS3Key : null
             });
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
@@ -271,13 +292,15 @@ public class CategoriesController : ControllerBase
         }
 
         var actorUserId = GetCurrentUserId();
-        var normalized = await ValidateAndNormalizeAsync(request, id);
+        var normalized = await ValidateAndNormalizeAsync(request, id, actorUserId);
         if (normalized.Errors.Count > 0)
         {
             return BadRequest(new { message = "Validation failed.", errors = normalized.Errors });
         }
 
         await using var conn = await _dataSource.OpenConnectionAsync();
+        var previousImageKey = await GetCategoryImageKeyAsync(conn, id);
+
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
                           UPDATE app.categories
@@ -307,13 +330,16 @@ public class CategoriesController : ControllerBase
             var createdAt = reader.GetDateTime(5);
             await reader.DisposeAsync();
 
+            var imageS3Key = await PersistCategoryImageAsync(conn, updatedId, level, normalized.ImageS3Key, actorUserId);
+            await CategoryMediaHelper.DeleteOrphanedBlobAsync(_blobService, previousImageKey, imageS3Key);
+
             await WriteAuditLogAsync(
                 conn,
                 actorUserId,
                 "category.updated",
                 "category",
                 updatedId,
-                new { name, slug, level, parentId }
+                new { name, slug, level, parentId, imageS3Key }
             );
 
             return Ok(new
@@ -323,7 +349,8 @@ public class CategoriesController : ControllerBase
                 name,
                 slug,
                 level,
-                createdAt
+                createdAt,
+                imageS3Key = level == 1 ? imageS3Key : null
             });
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
@@ -376,6 +403,8 @@ public class CategoriesController : ControllerBase
         }
 
         var actorUserId = GetCurrentUserId();
+        var imageKeyToDelete = await GetCategoryImageKeyAsync(conn, id);
+
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
                           DELETE FROM app.categories
@@ -396,6 +425,11 @@ public class CategoriesController : ControllerBase
         var deletedLevel = reader.GetInt16(3);
         var deletedParentId = reader.IsDBNull(4) ? (Guid?)null : reader.GetGuid(4);
         await reader.DisposeAsync();
+
+        if (deletedLevel == 1 && !string.IsNullOrWhiteSpace(imageKeyToDelete))
+        {
+            await _blobService.DeleteAsync(imageKeyToDelete);
+        }
 
         await WriteAuditLogAsync(
             conn,
@@ -449,14 +483,66 @@ public class CategoriesController : ControllerBase
         return Guid.TryParse(userIdRaw, out var userId) ? userId : null;
     }
 
-    private async Task<(Dictionary<string, string> Errors, string Name, string Slug, short Level, Guid? ParentId)> ValidateAndNormalizeAsync(
+    private async Task<string?> GetCategoryImageKeyAsync(NpgsqlConnection conn, Guid categoryId)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          SELECT image_s3_key
+                          FROM app.categories
+                          WHERE id = @id
+                          LIMIT 1;
+                          """;
+        cmd.Parameters.AddWithValue("id", categoryId);
+        var raw = await cmd.ExecuteScalarAsync();
+        return raw is null or DBNull ? null : Convert.ToString(raw, CultureInfo.InvariantCulture);
+    }
+
+    private async Task<string?> PersistCategoryImageAsync(
+        NpgsqlConnection conn,
+        Guid categoryId,
+        short level,
+        string? imageS3Key,
+        Guid? actorUserId)
+    {
+        string? resolved = null;
+        if (level == 1 && actorUserId is not null)
+        {
+            if (_blobService.IsEnabled && !string.IsNullOrWhiteSpace(imageS3Key))
+            {
+                resolved = await CategoryMediaHelper.ResolveImageKeyForSaveAsync(
+                    _blobService,
+                    imageS3Key,
+                    categoryId,
+                    actorUserId.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(imageS3Key))
+            {
+                resolved = imageS3Key.Trim();
+            }
+        }
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+                          UPDATE app.categories
+                          SET image_s3_key = @image_s3_key
+                          WHERE id = @id;
+                          """;
+        cmd.Parameters.AddWithValue("id", categoryId);
+        cmd.Parameters.AddWithValue("image_s3_key", (object?)resolved ?? DBNull.Value);
+        await cmd.ExecuteNonQueryAsync();
+        return resolved;
+    }
+
+    private async Task<(Dictionary<string, string> Errors, string Name, string Slug, short Level, Guid? ParentId, string? ImageS3Key)> ValidateAndNormalizeAsync(
         UpsertCategoryRequest request,
-        Guid? editingId)
+        Guid? editingId,
+        Guid? actorUserId)
     {
         var errors = new Dictionary<string, string>();
         var name = request.Name?.Trim() ?? string.Empty;
         var level = request.Level;
         var parentId = request.ParentId;
+        string? imageS3Key = null;
 
         if (string.IsNullOrWhiteSpace(name) || name.Length < 2)
         {
@@ -511,7 +597,29 @@ public class CategoriesController : ControllerBase
             errors["slug"] = "Slug cannot be empty.";
         }
 
-        return (errors, name, slug, level, parentId);
+        if (level == 1)
+        {
+            if (!CategoryMediaKeyRules.TryValidateForLevel1Upsert(
+                    request.ImageS3Key,
+                    actorUserId,
+                    editingId,
+                    isCreate: !editingId.HasValue,
+                    out var normalizedKey,
+                    out var imageError))
+            {
+                errors["imageS3Key"] = imageError ?? "Invalid category image.";
+            }
+            else
+            {
+                imageS3Key = normalizedKey;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(request.ImageS3Key))
+        {
+            errors["imageS3Key"] = "Photos are only supported for level 1 categories.";
+        }
+
+        return (errors, name, slug, level, parentId, imageS3Key);
     }
 
     private static async Task WriteAuditLogAsync(

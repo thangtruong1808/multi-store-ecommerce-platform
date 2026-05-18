@@ -72,6 +72,11 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
           setConfirmDeleteCategory={c.setConfirmDeleteCategory}
           isCategoryDeleting={c.isCategoryDeleting}
           onDeleteCategory={(category) => void c.handleDeleteCategory(category)}
+          isCategoryImageUploading={c.isCategoryImageUploading}
+          categoryMediaBaseUrl={c.categoryMediaBaseUrl}
+          categoryImageInputRef={c.categoryImageInputRef}
+          onCategoryImageFile={(file) => void c.handleCategoryImageFile(file)}
+          onRemoveCategoryImage={() => void c.handleRemoveCategoryImage()}
         />
       )}
 

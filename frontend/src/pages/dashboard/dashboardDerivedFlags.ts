@@ -32,15 +32,24 @@ export function computeHasEditChanges(
   )
 }
 
+function normalizeCategoryImageKey(key?: string | null) {
+  return key?.trim() ?? ''
+}
+
 export function computeHasCategoryChanges(editingCategory: CategoryItem | null, categoryForm: CategoryFormState) {
   if (editingCategory === null) {
     return categoryForm.name.trim().length > 0 && (categoryForm.level === '1' || categoryForm.parentId !== 'none')
   }
+  const imageChanged =
+    categoryForm.level === '1' || editingCategory.level === 1
+      ? normalizeCategoryImageKey(categoryForm.imageS3Key) !== normalizeCategoryImageKey(editingCategory.imageS3Key)
+      : false
   return (
     categoryForm.name.trim() !== editingCategory.name ||
     categoryForm.slug.trim().toLowerCase() !== editingCategory.slug.toLowerCase() ||
     categoryForm.level !== String(editingCategory.level) ||
-    (categoryForm.parentId === 'none' ? null : categoryForm.parentId) !== editingCategory.parentId
+    (categoryForm.parentId === 'none' ? null : categoryForm.parentId) !== editingCategory.parentId ||
+    imageChanged
   )
 }
 

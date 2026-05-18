@@ -1,7 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { API_BASE_URL } from '../../../features/auth/authConstants'
+import { loadProductMediaPublicBaseUrl } from '../../../utils/productMediaUrl'
+import {
+  deleteCategoryImage,
+  isStagingCategoryBlobKey,
+  uploadCategoryImage,
+} from '../categories/categoryMediaApi'
 import { fetchWithAutoRefresh } from '../fetchDashboardApi'
 import type {
   CategoriesResponse,
@@ -14,6 +20,14 @@ import type {
 type ListSlice = {
   setCategoriesState: Dispatch<SetStateAction<CategoriesResponse>>
 }
+
+const emptyCategoryForm = (): CategoryFormState => ({
+  name: '',
+  slug: '',
+  level: '1',
+  parentId: 'none',
+  imageS3Key: '',
+})
 
 export function useDashboardCategoriesForm(
   activeFeature: DashboardFeatureKey,
@@ -30,19 +44,17 @@ export function useDashboardCategoriesForm(
   const [isCategorySaving, setIsCategorySaving] = useState(false)
   const [isCategoryDeleting, setIsCategoryDeleting] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
-  const [categoryForm, setCategoryForm] = useState<CategoryFormState>({
-    name: '',
-    slug: '',
-    level: '1',
-    parentId: 'none',
-  })
+  const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm)
+  const [isCategoryImageUploading, setIsCategoryImageUploading] = useState(false)
+  const [categoryMediaBaseUrl, setCategoryMediaBaseUrl] = useState<string | null>(null)
+  const categoryImageInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (activeFeature !== 'categories') {
       setIsCategoryFormOpen(false)
       setEditingCategory(null)
       setConfirmDeleteCategory(null)
-      setCategoryForm({ name: '', slug: '', level: '1', parentId: 'none' })
+      setCategoryForm(emptyCategoryForm())
     }
   }, [activeFeature])
 
@@ -54,11 +66,23 @@ export function useDashboardCategoriesForm(
 
   useEffect(() => {
     if (activeFeature !== 'categories' || !isCategoryFormOpen) return
+    let alive = true
+    void loadProductMediaPublicBaseUrl().then((base) => {
+      if (alive && base) setCategoryMediaBaseUrl(base)
+    })
+    return () => {
+      alive = false
+    }
+  }, [activeFeature, isCategoryFormOpen])
+
+  useEffect(() => {
+    if (activeFeature !== 'categories' || !isCategoryFormOpen) return
     if (categoryForm.level === '1') {
       setCategoryFormParentOptions([])
       setCategoryForm((prev) => ({ ...prev, parentId: 'none' }))
       return
     }
+    setCategoryForm((prev) => (prev.level === '1' ? { ...prev, imageS3Key: '' } : prev))
     let isMounted = true
     const loadFormParents = async () => {
       setIsCategoryFormParentsLoading(true)
@@ -89,13 +113,13 @@ export function useDashboardCategoriesForm(
   const closeCategoryForm = () => {
     setEditingCategory(null)
     setIsCategoryFormOpen(false)
-    setCategoryForm({ name: '', slug: '', level: '1', parentId: 'none' })
+    setCategoryForm(emptyCategoryForm())
   }
 
   const openCreateCategoryForm = () => {
     setEditingCategory(null)
     setIsCategoryFormOpen(true)
-    setCategoryForm({ name: '', slug: '', level: '1', parentId: 'none' })
+    setCategoryForm(emptyCategoryForm())
     setInlineStatusMessage(null)
   }
 
@@ -107,20 +131,45 @@ export function useDashboardCategoriesForm(
       slug: category.slug,
       level: String(category.level) as '1' | '2' | '3',
       parentId: category.parentId ?? 'none',
+      imageS3Key: category.level === 1 ? (category.imageS3Key ?? '') : '',
     })
     setInlineStatusMessage(null)
   }
 
-  const handleSaveCategory = async () => {
-    const hasCategoryChanges =
-      editingCategory === null
-        ? categoryForm.name.trim().length > 0 && (categoryForm.level === '1' || categoryForm.parentId !== 'none')
-        : categoryForm.name.trim() !== editingCategory.name ||
-          categoryForm.slug.trim().toLowerCase() !== editingCategory.slug.toLowerCase() ||
-          categoryForm.level !== String(editingCategory.level) ||
-          (categoryForm.parentId === 'none' ? null : categoryForm.parentId) !== editingCategory.parentId
-    if (!hasCategoryChanges) return
+  const handleCategoryImageFile = async (file: File) => {
+    if (categoryForm.level !== '1') return
+    setIsCategoryImageUploading(true)
+    setInlineStatusMessage(null)
+    try {
+      const result = await uploadCategoryImage(file, editingCategory?.level === 1 ? editingCategory.id : null)
+      setCategoryForm((prev) => ({ ...prev, imageS3Key: result.blobKey }))
+      if (result.publicUrl.endsWith(result.blobKey)) {
+        const base = result.publicUrl.slice(0, -(result.blobKey.length + 1))
+        setCategoryMediaBaseUrl((prev) => prev ?? base)
+      }
+    } catch (error) {
+      setInlineStatusType('error')
+      setInlineStatusMessage(error instanceof Error ? error.message : 'Unable to upload category image.')
+    } finally {
+      setIsCategoryImageUploading(false)
+    }
+  }
 
+  const handleRemoveCategoryImage = async () => {
+    const key = categoryForm.imageS3Key.trim()
+    if (key && isStagingCategoryBlobKey(key)) {
+      try {
+        await deleteCategoryImage(key)
+      } catch (error) {
+        setInlineStatusType('error')
+        setInlineStatusMessage(error instanceof Error ? error.message : 'Unable to delete image from storage.')
+        return
+      }
+    }
+    setCategoryForm((prev) => ({ ...prev, imageS3Key: '' }))
+  }
+
+  const handleSaveCategory = async () => {
     setIsCategorySaving(true)
     setInlineStatusMessage(null)
     try {
@@ -129,6 +178,7 @@ export function useDashboardCategoriesForm(
         slug: categoryForm.slug.trim(),
         level: Number(categoryForm.level),
         parentId: categoryForm.level === '1' || categoryForm.parentId === 'none' ? null : categoryForm.parentId,
+        imageS3Key: categoryForm.level === '1' ? categoryForm.imageS3Key.trim() || null : null,
       }
       const response = await fetchWithAutoRefresh(
         editingCategory ? `${API_BASE_URL}/api/categories/${editingCategory.id}` : `${API_BASE_URL}/api/categories`,
@@ -164,7 +214,7 @@ export function useDashboardCategoriesForm(
 
       setEditingCategory(null)
       setIsCategoryFormOpen(false)
-      setCategoryForm({ name: '', slug: '', level: '1', parentId: 'none' })
+      setCategoryForm(emptyCategoryForm())
     } catch (error) {
       setInlineStatusType('error')
       setInlineStatusMessage(error instanceof Error ? error.message : 'Failed to save category.')
@@ -226,5 +276,10 @@ export function useDashboardCategoriesForm(
     openEditCategoryForm,
     handleSaveCategory,
     handleDeleteCategory,
+    isCategoryImageUploading,
+    categoryMediaBaseUrl,
+    categoryImageInputRef,
+    handleCategoryImageFile,
+    handleRemoveCategoryImage,
   }
 }

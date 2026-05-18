@@ -9,6 +9,7 @@ type PublicCategoryRow = {
   name: string
   slug: string
   level: number
+  imageS3Key?: string | null
 }
 
 type SpotlightResponse = {
@@ -192,7 +193,7 @@ export default function HomePage() {
               skeleton={<HomeCarouselSkeletonRow count={5} />}
             >
               {level1Categories.map((c) => (
-                <HomeCategoryCard key={c.id} name={c.name} slug={c.slug} />
+                <HomeCategoryCard key={c.id} name={c.name} slug={c.slug} imageS3Key={c.imageS3Key} />
               ))}
             </HomeCarouselSection>
 

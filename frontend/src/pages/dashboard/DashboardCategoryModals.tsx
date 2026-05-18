@@ -1,6 +1,7 @@
-import type { Dispatch, SetStateAction } from 'react'
-import { FiAlertTriangle, FiCheck, FiTag, FiTrash2, FiX } from 'react-icons/fi'
+import type { Dispatch, RefObject, SetStateAction } from 'react'
+import { FiAlertTriangle, FiCheck, FiImage, FiTag, FiTrash2, FiUpload, FiX } from 'react-icons/fi'
 
+import { buildProductMediaUrl } from '../../utils/productMediaUrl'
 import { DashboardSpinner } from './DashboardSpinner'
 import type { CategoryFormState, CategoryItem, CategoryParentOption } from './dashboardTypes'
 
@@ -19,6 +20,11 @@ type DashboardCategoryModalsProps = {
   setConfirmDeleteCategory: (category: CategoryItem | null) => void
   isCategoryDeleting: boolean
   onDeleteCategory: (category: CategoryItem) => void
+  isCategoryImageUploading: boolean
+  categoryMediaBaseUrl: string | null
+  categoryImageInputRef: RefObject<HTMLInputElement | null>
+  onCategoryImageFile: (file: File) => void
+  onRemoveCategoryImage: () => void
 }
 
 export function DashboardCategoryModals({
@@ -36,7 +42,18 @@ export function DashboardCategoryModals({
   setConfirmDeleteCategory,
   isCategoryDeleting,
   onDeleteCategory,
+  isCategoryImageUploading,
+  categoryMediaBaseUrl,
+  categoryImageInputRef,
+  onCategoryImageFile,
+  onRemoveCategoryImage,
 }: DashboardCategoryModalsProps) {
+  const categoryPreviewUrl =
+    categoryForm.level === '1' && categoryForm.imageS3Key && categoryMediaBaseUrl
+      ? buildProductMediaUrl(categoryForm.imageS3Key, categoryMediaBaseUrl)
+      : null
+  const isCategoryFormBusy = isCategorySaving || isCategoryImageUploading
+
   return (
     <>
       {isCategoryFormOpen && (
@@ -94,13 +111,15 @@ export function DashboardCategoryModals({
                   Level
                   <select
                     value={categoryForm.level}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextLevel = event.target.value as '1' | '2' | '3'
                       setCategoryForm((prev) => ({
                         ...prev,
-                        level: event.target.value as '1' | '2' | '3',
-                        parentId: event.target.value === '1' ? 'none' : prev.parentId,
+                        level: nextLevel,
+                        parentId: nextLevel === '1' ? 'none' : prev.parentId,
+                        imageS3Key: nextLevel === '1' ? prev.imageS3Key : '',
                       }))
-                    }
+                    }}
                     className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-500 focus:ring focus:ring-sky-100"
                   >
                     <option value="1">Level 1</option>
@@ -108,6 +127,68 @@ export function DashboardCategoryModals({
                     <option value="3">Level 3</option>
                   </select>
                 </label>
+
+                {categoryForm.level === '1' && (
+                  <div className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Department photo (optional)</p>
+                    <p className="mt-1 text-xs leading-snug text-slate-500">
+                      Shown on the home page category carousel. One JPEG, PNG, or WebP (max 8 MB).
+                    </p>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 sm:h-20 sm:w-28">
+                        {categoryPreviewUrl ? (
+                          <img
+                            src={categoryPreviewUrl}
+                            alt="Category preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-slate-400">
+                            <FiImage className="h-6 w-6" aria-hidden="true" />
+                          </div>
+                        )}
+                        {isCategoryImageUploading ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                            <DashboardSpinner className="h-5 w-5" />
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          ref={categoryImageInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0]
+                            if (file) void onCategoryImageFile(file)
+                            event.target.value = ''
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={isCategoryFormBusy}
+                          onClick={() => categoryImageInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <FiUpload className="h-4 w-4" aria-hidden="true" />
+                          {categoryForm.imageS3Key ? 'Replace photo' : 'Upload photo'}
+                        </button>
+                        {categoryForm.imageS3Key ? (
+                          <button
+                            type="button"
+                            disabled={isCategoryFormBusy}
+                            onClick={() => void onRemoveCategoryImage()}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <FiTrash2 className="h-4 w-4" aria-hidden="true" />
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {categoryForm.level !== '1' && (
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 sm:col-span-2">
@@ -146,7 +227,7 @@ export function DashboardCategoryModals({
                 <button
                   type="button"
                   onClick={onSaveCategory}
-                  disabled={isCategorySaving || !hasCategoryChanges}
+                  disabled={isCategoryFormBusy || !hasCategoryChanges}
                   className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isCategorySaving && <DashboardSpinner className="h-3.5 w-3.5 border-white/40 border-t-white" />}
