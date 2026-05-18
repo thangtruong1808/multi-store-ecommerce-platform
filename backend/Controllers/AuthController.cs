@@ -2,7 +2,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using backend.Auth;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using NpgsqlTypes;
@@ -17,6 +19,8 @@ public partial class AuthController : ControllerBase
     private const string AccessCookieName = "access_token";
     private readonly NpgsqlDataSource _dataSource;
     private readonly IConfiguration _configuration;
+    private readonly AzureCommunicationEmailService _emailService;
+    private readonly AzureCommunicationEmailOptions _emailOptions;
     private static readonly (string Code, string Description)[] DefaultPermissions =
     [
         ("dashboard:view", "View dashboard pages and widgets"),
@@ -66,10 +70,16 @@ public partial class AuthController : ControllerBase
         ["customer"] = ["stores:read", "categories:read", "products:read"]
     };
 
-    public AuthController(NpgsqlDataSource dataSource, IConfiguration configuration)
+    public AuthController(
+        NpgsqlDataSource dataSource,
+        IConfiguration configuration,
+        AzureCommunicationEmailService emailService,
+        IOptions<AzureCommunicationEmailOptions> emailOptions)
     {
         _dataSource = dataSource;
         _configuration = configuration;
+        _emailService = emailService;
+        _emailOptions = emailOptions.Value;
     }
 
     private string GenerateAccessToken(Guid userId, string email, string role)
@@ -232,6 +242,8 @@ public partial class AuthController : ControllerBase
     public sealed record RegisterRequest(string FirstName, string LastName, string Email, string Password, string? Mobile);
     public sealed record LoginRequest(string Email, string Password);
     public sealed record PasswordResetRequest(string Email);
+
+    public sealed record PasswordResetConfirmRequest(string Token, string NewPassword);
     public sealed record UpdateUserRoleRequest(string Role);
     public sealed record UpdateUserRequest(
         string FirstName,

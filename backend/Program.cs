@@ -1,5 +1,6 @@
 using System.Security.Claims; // Claims
 using System.Text; // Encoding
+using backend.Auth;
 using backend.Products;
 using Microsoft.AspNetCore.Authentication.JwtBearer; // JWT authentication
 using Microsoft.IdentityModel.Tokens; // JWT token validation
@@ -49,6 +50,19 @@ builder.Services.Configure<AzureProductBlobOptions>(options =>
 });
 builder.Services.AddSingleton<AzureProductBlobService>();
 builder.Services.AddSingleton<ProductImageProcessor>();
+
+var acsEmailEnabled = bool.TryParse(builder.Configuration["ACS_EMAIL_ENABLED"], out var acsEnabledFlag) && acsEnabledFlag;
+var passwordResetTokenMinutes = int.TryParse(builder.Configuration["PASSWORD_RESET_TOKEN_MINUTES"], out var resetMinutes)
+    ? Math.Clamp(resetMinutes, 5, 1440)
+    : 30;
+builder.Services.Configure<AzureCommunicationEmailOptions>(options =>
+{
+    options.Enabled = acsEmailEnabled;
+    options.ConnectionString = builder.Configuration["ACS_EMAIL_CONNECTION_STRING"] ?? string.Empty;
+    options.SenderAddress = (builder.Configuration["ACS_EMAIL_SENDER_ADDRESS"] ?? string.Empty).Trim();
+    options.PasswordResetTokenMinutes = passwordResetTokenMinutes;
+});
+builder.Services.AddSingleton<AzureCommunicationEmailService>();
 
 // --- Authentication and authorization (step 2: add after the API + DB are in place) ---
 var jwtSecret = builder.Configuration["JWT_SECRET"] ?? string.Empty; // Get the JWT secret from the configuration

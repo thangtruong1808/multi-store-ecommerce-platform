@@ -8,6 +8,7 @@ import SignInPage from './pages/SignInPage'
 import RegisterPage from './pages/RegisterPage'
 import ProfilePage from './pages/ProfilePage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import ConfirmResetPasswordPage from './pages/ConfirmResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import { CategoryProductsBySlugPage } from './pages/categoryProducts/CategoryProductsBrowsePage'
 import { DepartmentBrowsePage } from './pages/categoryProducts/DepartmentBrowsePage'
@@ -70,6 +71,7 @@ function App() {
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/reset-password/confirm" element={<ConfirmResetPasswordPage />} />
         </Route>
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<ProfilePage />} />
