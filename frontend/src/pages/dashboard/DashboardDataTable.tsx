@@ -8,6 +8,7 @@ import type {
   ActivityLogsResponse,
   BasicRow,
   CategoriesResponse,
+  InvoicesResponse,
   CategoryItem,
   DashboardFeatureKey,
   ProductItem,
@@ -32,12 +33,14 @@ type DashboardDataTableProps = {
   isCategoriesLoading: boolean
   isProductsLoading: boolean
   isActivityLogsLoading: boolean
+  isInvoicesLoading: boolean
   isFeatureLoading: boolean
   usersState: UsersResponse
   storesState: StoresResponse
   categoriesState: CategoriesResponse
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
+  invoicesState: InvoicesResponse
   nonUserItems: BasicRow[]
   isDeleteLoading: boolean
   deletingUserId: string | null
@@ -72,12 +75,14 @@ export function DashboardDataTable({
   isCategoriesLoading,
   isProductsLoading,
   isActivityLogsLoading,
+  isInvoicesLoading,
   isFeatureLoading,
   usersState,
   storesState,
   categoriesState,
   productsState,
   activityLogsState,
+  invoicesState,
   nonUserItems,
   isDeleteLoading,
   deletingUserId,
@@ -119,12 +124,14 @@ export function DashboardDataTable({
             isCategoriesLoading={isCategoriesLoading}
             isProductsLoading={isProductsLoading}
             isActivityLogsLoading={isActivityLogsLoading}
+            isInvoicesLoading={isInvoicesLoading}
             isFeatureLoading={isFeatureLoading}
             usersState={usersState}
             storesState={storesState}
             categoriesState={categoriesState}
             productsState={productsState}
             activityLogsState={activityLogsState}
+            invoicesState={invoicesState}
             nonUserItems={nonUserItems}
             isDeleteLoading={isDeleteLoading}
             deletingUserId={deletingUserId}

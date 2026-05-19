@@ -18,6 +18,7 @@ import { useDashboardChrome } from './useDashboardChrome'
 import { useDashboardProductsBlock } from './useDashboardProductsBlock'
 import { useDashboardStoresBlock } from './useDashboardStoresBlock'
 import { useDashboardSessionStores } from './useDashboardSessionStores'
+import { useDashboardInvoicesBlock } from './useDashboardInvoicesBlock'
 import { useDashboardUsersBlock } from './useDashboardUsersBlock'
 
 export function useDashboardModel() {
@@ -84,6 +85,15 @@ export function useDashboardModel() {
     dashboardApiReady,
   )
 
+  const invoices = useDashboardInvoicesBlock(
+    activeFeature,
+    page,
+    pageSize,
+    chrome.setInlineStatusMessage,
+    chrome.setInlineStatusType,
+    dashboardApiReady,
+  )
+
   const pagination = useMemo(
     () =>
       deriveDashboardPagination({
@@ -95,6 +105,7 @@ export function useDashboardModel() {
         categoriesState: categories.categoriesState,
         productsState: products.productsState,
         activityLogsState: users.activityLogsState,
+        invoicesState: invoices.invoicesState,
       }),
     [
       activeFeature,
@@ -105,6 +116,7 @@ export function useDashboardModel() {
       categories.categoriesState,
       products.productsState,
       users.activityLogsState,
+      invoices.invoicesState,
     ],
   )
 
@@ -142,7 +154,8 @@ export function useDashboardModel() {
     stores.storesError ??
     categories.categoriesError ??
     products.productsError ??
-    users.activityLogsError
+    users.activityLogsError ??
+    invoices.invoicesError
 
   return {
     isAuthenticated,
@@ -170,6 +183,7 @@ export function useDashboardModel() {
     products,
     stores,
     users,
+    invoices,
 
     hasEditChanges,
     hasCategoryChanges,

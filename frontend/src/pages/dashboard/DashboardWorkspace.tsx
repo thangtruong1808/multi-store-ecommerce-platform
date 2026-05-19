@@ -20,6 +20,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
   const c = model.categories
   const p = model.products
   const s = model.stores
+  const inv = model.invoices
 
   return (
     <section className="min-w-0 p-3 sm:p-4 lg:p-6">
@@ -183,12 +184,14 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         isCategoriesLoading={c.isCategoriesLoading}
         isProductsLoading={p.isProductsLoading}
         isActivityLogsLoading={u.isActivityLogsLoading}
+        isInvoicesLoading={inv.isInvoicesLoading}
         isFeatureLoading={model.isFeatureLoading}
         usersState={u.usersState}
         storesState={s.storesState}
         categoriesState={c.categoriesState}
         productsState={p.productsState}
         activityLogsState={u.activityLogsState}
+        invoicesState={inv.invoicesState}
         nonUserItems={model.nonUserItems}
         isDeleteLoading={u.isDeleteLoading}
         deletingUserId={u.deletingUserId}

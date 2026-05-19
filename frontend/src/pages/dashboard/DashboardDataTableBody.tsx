@@ -1,10 +1,13 @@
 import { FiEdit2, FiTrash2 } from 'react-icons/fi'
 
+import { formatAudAmount } from '../../components/home/formatAud'
+import { DashboardInvoiceDownloadButton } from './invoices/DashboardInvoiceDownloadButton'
 import { DashboardSpinner } from './DashboardSpinner'
 import type {
   ActivityLogsResponse,
   BasicRow,
   CategoriesResponse,
+  InvoicesResponse,
   CategoryItem,
   DashboardFeatureKey,
   ProductItem,
@@ -23,12 +26,14 @@ type DashboardDataTableBodyProps = {
   isCategoriesLoading: boolean
   isProductsLoading: boolean
   isActivityLogsLoading: boolean
+  isInvoicesLoading: boolean
   isFeatureLoading: boolean
   usersState: UsersResponse
   storesState: StoresResponse
   categoriesState: CategoriesResponse
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
+  invoicesState: InvoicesResponse
   nonUserItems: BasicRow[]
   isDeleteLoading: boolean
   deletingUserId: string | null
@@ -57,12 +62,14 @@ export function DashboardDataTableBody({
   isCategoriesLoading,
   isProductsLoading,
   isActivityLogsLoading,
+  isInvoicesLoading,
   isFeatureLoading,
   usersState,
   storesState,
   categoriesState,
   productsState,
   activityLogsState,
+  invoicesState,
   nonUserItems,
   isDeleteLoading,
   deletingUserId,
@@ -89,6 +96,7 @@ export function DashboardDataTableBody({
       (activeFeature === 'categories' && isCategoriesLoading) ||
       (activeFeature === 'products' && isProductsLoading) ||
       (activeFeature === 'activityLogs' && isActivityLogsLoading) ||
+      (activeFeature === 'invoices' && isInvoicesLoading) ||
       isFeatureLoading ? (
         <tr>
           <td colSpan={5} className="px-3 py-8 text-center text-slate-500">
@@ -104,7 +112,9 @@ export function DashboardDataTableBody({
                       ? 'Loading products...'
                       : activeFeature === 'activityLogs'
                         ? 'Loading activity logs...'
-                        : 'Loading data...'}
+                        : activeFeature === 'invoices'
+                          ? 'Loading invoices...'
+                          : 'Loading data...'}
             </div>
           </td>
         </tr>
@@ -299,6 +309,45 @@ export function DashboardDataTableBody({
             </td>
           </tr>
         ))
+      ) : activeFeature === 'invoices' ? (
+        invoicesState.items.map((invoice) => {
+          const amountLabel =
+            invoice.currencyCode.toUpperCase() === 'AUD'
+              ? `A$${formatAudAmount(Number(invoice.grandTotal))}`
+              : `${invoice.currencyCode} ${invoice.grandTotal}`
+          const statusClass =
+            invoice.paymentStatus.toLowerCase() === 'succeeded'
+              ? 'bg-emerald-100 text-emerald-700'
+              : invoice.paymentStatus.toLowerCase() === 'pending'
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-slate-200 text-slate-700'
+
+          return (
+            <tr key={invoice.id} className="align-middle">
+              <td className="px-3 py-2.5">
+                <p className="font-medium text-slate-800">{invoice.orderNumber}</p>
+                <p className="text-xs text-slate-500">{new Date(invoice.placedAt).toLocaleString()}</p>
+              </td>
+              <td className="px-3 py-2.5 text-slate-700">
+                <p className="tabular-nums">{amountLabel}</p>
+                <p className="text-xs text-slate-500">{invoice.customerEmail}</p>
+                {invoice.storeName ? <p className="text-xs text-slate-500">{invoice.storeName}</p> : null}
+              </td>
+              <td className="px-3 py-2.5">
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+                  {invoice.paymentStatusLabel}
+                </span>
+              </td>
+              <td className="px-3 py-2.5">
+                <DashboardInvoiceDownloadButton
+                  orderId={invoice.id}
+                  orderNumber={invoice.orderNumber}
+                  paymentStatus={invoice.paymentStatus}
+                />
+              </td>
+            </tr>
+          )
+        })
       ) : activeFeature === 'activityLogs' ? (
         activityLogsState.items.map((log) => (
           <tr key={log.id}>
@@ -327,6 +376,7 @@ export function DashboardDataTableBody({
         !isCategoriesLoading &&
         !isProductsLoading &&
         !isActivityLogsLoading &&
+        !isInvoicesLoading &&
         !isFeatureLoading &&
         currentItems === 0 && (
           <tr>

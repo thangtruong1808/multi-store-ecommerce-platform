@@ -145,6 +145,26 @@ export type BasicRow = {
   status: string
 }
 
+export type InvoiceItem = {
+  id: string
+  orderNumber: string
+  grandTotal: number
+  currencyCode: string
+  paymentStatus: string
+  paymentStatusLabel: string
+  placedAt: string
+  customerEmail: string
+  storeName: string | null
+}
+
+export type InvoicesResponse = {
+  items: InvoiceItem[]
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
 export type StoreItem = {
   id: string
   name: string

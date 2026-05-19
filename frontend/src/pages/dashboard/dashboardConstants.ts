@@ -22,17 +22,9 @@ export const sideBarItems: SidebarItem[] = [
   { key: 'activityLogs', label: 'Activity Logs', icon: FiActivity },
 ]
 
-export const mockData: Record<
-  Exclude<DashboardFeatureKey, 'users' | 'categories' | 'products' | 'activityLogs' | 'stores'>,
-  BasicRow[]
-> = {
+export const mockData: Record<'vouchers', BasicRow[]> = {
   vouchers: [
     { id: '1', primary: 'WELCOME10', secondary: '10% Off', status: 'Active' },
     { id: '2', primary: 'FREESHIP', secondary: 'Free Delivery', status: 'Active' },
-  ],
-  invoices: [
-    { id: '1', primary: 'INV-1001', secondary: 'A$1,250.00', status: 'Paid' },
-    { id: '2', primary: 'INV-1002', secondary: 'A$430.50', status: 'Pending' },
-    { id: '3', primary: 'INV-1003', secondary: 'A$92.00', status: 'Overdue' },
   ],
 }
