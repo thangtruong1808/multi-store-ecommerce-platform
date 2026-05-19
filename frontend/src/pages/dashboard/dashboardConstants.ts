@@ -1,5 +1,6 @@
 import {
   FiActivity,
+  FiBarChart2,
   FiFileText,
   FiGift,
   FiPackage,
@@ -13,6 +14,7 @@ import type { BasicRow, DashboardFeatureKey, SidebarItem } from './dashboardType
 export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
 
 export const sideBarItems: SidebarItem[] = [
+  { key: 'overview', label: 'Overview', icon: FiBarChart2 },
   { key: 'users', label: 'Users', icon: FiUsers },
   { key: 'stores', label: 'Stores', icon: FiShoppingBag },
   { key: 'categories', label: 'Categories', icon: FiTag },

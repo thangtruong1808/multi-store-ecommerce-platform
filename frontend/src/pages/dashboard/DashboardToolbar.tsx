@@ -45,7 +45,9 @@ export function DashboardToolbar({
             {sideBarItems.find((item) => item.key === activeFeature)?.label}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Manage {sideBarItems.find((item) => item.key === activeFeature)?.label?.toLowerCase()} in one place.
+            {activeFeature === 'overview'
+              ? 'Key metrics for your store(s).'
+              : `Manage ${sideBarItems.find((item) => item.key === activeFeature)?.label?.toLowerCase()} in one place.`}
           </p>
         </div>
       </div>

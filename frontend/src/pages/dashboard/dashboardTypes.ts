@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 
 export type DashboardFeatureKey =
+  | 'overview'
   | 'users'
   | 'stores'
   | 'categories'
@@ -143,6 +144,50 @@ export type BasicRow = {
   primary: string
   secondary: string
   status: string
+}
+
+export type RevenueByDayPoint = {
+  date: string
+  revenue: number
+  orderCount: number
+}
+
+export type PaymentStatusSlice = {
+  status: string
+  label: string
+  count: number
+}
+
+export type TopProductPoint = {
+  productName: string
+  unitsSold: number
+  revenue: number
+}
+
+export type CustomersPerStorePoint = {
+  storeId: string
+  storeName: string
+  uniqueCustomers: number
+  paidOrderCount: number
+}
+
+export type DashboardStatistics = {
+  storeId: string | null
+  storeName: string | null
+  periodDays: number
+  currencyCode: string
+  revenuePaid: number
+  orderCount: number
+  paidOrderCount: number
+  pendingPaymentCount: number
+  averageOrderValue: number
+  activeProductCount: number
+  lowStockCount: number
+  uniqueCustomersTotal: number
+  revenueByDay: RevenueByDayPoint[]
+  paymentStatusBreakdown: PaymentStatusSlice[]
+  topProducts: TopProductPoint[]
+  customersPerStore: CustomersPerStorePoint[]
 }
 
 export type InvoiceItem = {

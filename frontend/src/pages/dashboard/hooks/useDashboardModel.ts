@@ -19,6 +19,7 @@ import { useDashboardProductsBlock } from './useDashboardProductsBlock'
 import { useDashboardStoresBlock } from './useDashboardStoresBlock'
 import { useDashboardSessionStores } from './useDashboardSessionStores'
 import { useDashboardInvoicesBlock } from './useDashboardInvoicesBlock'
+import { useDashboardOverviewBlock } from './useDashboardOverviewBlock'
 import { useDashboardUsersBlock } from './useDashboardUsersBlock'
 
 export function useDashboardModel() {
@@ -26,7 +27,7 @@ export function useDashboardModel() {
   const navigate = useNavigate()
   const { isAuthenticated, actionLoading, isLoading, isHydrated, user } = useAppSelector((state) => state.auth)
 
-  const [activeFeature, setActiveFeature] = useState<DashboardFeatureKey>('users')
+  const [activeFeature, setActiveFeature] = useState<DashboardFeatureKey>('overview')
   const [pageSize, setPageSize] = useState(10)
   const [page, setPage] = useState(1)
   const [dashboardApiReady, setDashboardApiReady] = useState(false)
@@ -94,6 +95,13 @@ export function useDashboardModel() {
     dashboardApiReady,
   )
 
+  const overview = useDashboardOverviewBlock(
+    activeFeature,
+    dashboardApiReady,
+    chrome.setInlineStatusMessage,
+    chrome.setInlineStatusType,
+  )
+
   const pagination = useMemo(
     () =>
       deriveDashboardPagination({
@@ -155,7 +163,8 @@ export function useDashboardModel() {
     categories.categoriesError ??
     products.productsError ??
     users.activityLogsError ??
-    invoices.invoicesError
+    invoices.invoicesError ??
+    overview.statisticsError
 
   return {
     isAuthenticated,
@@ -164,6 +173,7 @@ export function useDashboardModel() {
     isHydrated,
     fullName,
     userRole: user?.role ?? 'unknown',
+    managedStores: sessionStores.managedStores,
     storeLocationLabel: sessionStores.storeLocationLabel,
     isStoreLocationLoading: sessionStores.isStoreLocationLoading,
 
@@ -184,6 +194,7 @@ export function useDashboardModel() {
     stores,
     users,
     invoices,
+    overview,
 
     hasEditChanges,
     hasCategoryChanges,

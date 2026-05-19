@@ -17,7 +17,8 @@ export function getNonUserRows(activeFeature: DashboardFeatureKey) {
     activeFeature === 'categories' ||
     activeFeature === 'products' ||
     activeFeature === 'activityLogs' ||
-    activeFeature === 'invoices'
+    activeFeature === 'invoices' ||
+    activeFeature === 'overview'
   ) {
     return []
   }

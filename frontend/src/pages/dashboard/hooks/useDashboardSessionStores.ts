@@ -78,6 +78,7 @@ export function useDashboardSessionStores(dashboardApiReady: boolean) {
   }, [error, stores, userRole])
 
   return {
+    managedStores: stores,
     storeLocationLabel,
     isStoreLocationLoading: isLoading,
     storeLocationError: error,

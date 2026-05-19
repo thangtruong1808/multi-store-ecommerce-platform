@@ -1,3 +1,4 @@
+import { DashboardOverviewHome } from './DashboardOverviewHome'
 import { DashboardCategoryFilters } from './DashboardCategoryFilters'
 import { DashboardCategoryModals } from './DashboardCategoryModals'
 import { DashboardDataTable } from './DashboardDataTable'
@@ -21,6 +22,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
   const p = model.products
   const s = model.stores
   const inv = model.invoices
+  const ov = model.overview
 
   return (
     <section className="min-w-0 p-3 sm:p-4 lg:p-6">
@@ -170,6 +172,20 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         />
       )}
 
+      {activeFeature === 'overview' ? (
+        <DashboardOverviewHome
+          statistics={ov.statistics}
+          isStatisticsLoading={ov.isStatisticsLoading}
+          isAdminSession={ov.isAdminSession}
+          managedStores={model.managedStores}
+          storeLocationLabel={model.storeLocationLabel}
+          selectedStoreId={ov.selectedStoreId}
+          setSelectedStoreId={ov.setSelectedStoreId}
+          selectedPeriodDays={ov.selectedPeriodDays}
+          setSelectedPeriodDays={ov.setSelectedPeriodDays}
+          periodOptions={ov.periodOptions}
+        />
+      ) : (
       <DashboardDataTable
         activeFeature={activeFeature}
         pageSize={model.pageSize}
@@ -211,6 +227,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         deletingStoreId={s.deletingStoreId}
         canMutateStores={s.isAdmin}
       />
+      )}
     </section>
   )
 }
