@@ -4,11 +4,15 @@ frontend/dist/
 backend/bin/
 backend/obj/
 
+# Secrets — never commit (root Docker Compose, local overrides)
 .env
+.env.local
+.env.*.local
+!docker-compose.env.example
+
 frontend/.env
 backend/.env
 /database/
 BRANCH_PRODUCTION_GUIDE.local.md
-guide/
 guide/**/*.local.md
 guide/local/

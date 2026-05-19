@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from './app/hooks'
 import { fetchCurrentUser } from './features/auth/authSlice'
 import { fetchAndMergeWishlist } from './features/wishlist/wishlistThunks'
+import { useSystemHealth } from './hooks/useSystemHealth'
 import Navbar from './components/Navbar'
 import SignInPage from './pages/SignInPage'
 import RegisterPage from './pages/RegisterPage'
@@ -25,10 +26,14 @@ import CheckoutSuccessPage from './pages/CheckoutSuccessPage'
 import CheckoutCancelPage from './pages/CheckoutCancelPage'
 import OrdersHistoryPage from './pages/OrdersHistoryPage'
 import OrderDetailPage from './pages/OrderDetailPage'
+import { StorefrontSpinner } from './components/ui/StorefrontSpinner'
+import { MaintenancePage, SystemHealthLoadingPage } from './pages/MaintenancePage'
 
-function App() {
+function AppRoutes() {
   const dispatch = useAppDispatch()
-  const { user, isAuthenticated } = useAppSelector((state) => state.auth)
+  const { user, isAuthenticated, isHydrated, isLoading: isAuthLoading } = useAppSelector(
+    (state) => state.auth,
+  )
   const location = useLocation()
   const isDashboardRoute = location.pathname.startsWith('/dashboard')
 
@@ -41,6 +46,21 @@ function App() {
       void dispatch(fetchAndMergeWishlist())
     }
   }, [dispatch, isAuthenticated])
+
+  if (!isHydrated && isAuthLoading) {
+    return (
+      <div
+        className="flex min-h-screen min-w-0 flex-col items-center justify-center gap-3 bg-slate-100 px-4"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <StorefrontSpinner className="h-8 w-8" />
+        <p className="text-sm text-slate-600">Loading your session…</p>
+        <span className="sr-only">Checking authentication with server</span>
+      </div>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-800">
@@ -86,6 +106,20 @@ function App() {
       </Routes>
     </main>
   )
+}
+
+function App() {
+  const { status, message, isRetrying, retry } = useSystemHealth()
+
+  if (status === 'checking') {
+    return <SystemHealthLoadingPage />
+  }
+
+  if (status === 'down') {
+    return <MaintenancePage message={message} onRetry={retry} isRetrying={isRetrying} />
+  }
+
+  return <AppRoutes />
 }
 
 export default App

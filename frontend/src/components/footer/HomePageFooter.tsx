@@ -116,7 +116,7 @@ export function HomePageFooter({ level1Categories, isLoading, error }: HomePageF
           </div>
 
           <p className="mt-8 border-t border-slate-200 pt-6 text-center text-xs text-slate-500 sm:text-left">
-            © {year} Multi-Store Ecommerce Platform — v.1.0 by{' '}
+            {year} Multi-Store Ecommerce Platform — v.1.0 by{' '}
             <a
               href="https://github.com/thangtruong1808"
               className="text-sky-700 hover:text-sky-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"

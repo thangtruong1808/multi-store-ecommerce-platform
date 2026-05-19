@@ -26,3 +26,4 @@ dist-ssr
 guide/
 guide/**/*.local.md
 guide/local/
+.docker-compose.env.example
