@@ -33,6 +33,8 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role, avatarS
   const dispatch = useAppDispatch()
   const cartCount = useAppSelector((s) => s.cart.items.reduce((n, i) => n + i.quantity, 0))
   const wishlistCount = useAppSelector((s) => s.wishlist.ids.length)
+  const { isLoading: isAuthLoading, isHydrated } = useAppSelector((state) => state.auth)
+  const isUserSessionLoading = isAuthenticated && (!isHydrated || isAuthLoading)
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || 'U'
   const [mediaBaseUrl, setMediaBaseUrl] = useState<string | null>(() => getConfiguredProductMediaBaseUrl())
   const avatarImageUrl = useMemo(() => {
@@ -274,6 +276,9 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role, avatarS
           avatarImageUrl={avatarImageUrl}
           isUserMenuOpen={isUserMenuOpen}
           onToggleUserMenu={() => setIsUserMenuOpen((prev) => !prev)}
+          onCloseUserMenu={() => setIsUserMenuOpen(false)}
+          isSessionLoading={isUserSessionLoading}
+          isAvatarBusy={isUserSessionLoading}
           isSigningOut={isSigningOut}
           onSignOut={handleSignOut}
         />
@@ -295,6 +300,9 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role, avatarS
             avatarImageUrl={avatarImageUrl}
             isUserMenuOpen={isUserMenuOpen}
             onToggleUserMenu={() => setIsUserMenuOpen((prev) => !prev)}
+            onCloseUserMenu={() => setIsUserMenuOpen(false)}
+            isSessionLoading={isUserSessionLoading}
+            isAvatarBusy={isUserSessionLoading}
             isSigningOut={isSigningOut}
             onSignOut={handleSignOut}
           />

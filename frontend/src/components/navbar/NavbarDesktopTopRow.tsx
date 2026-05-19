@@ -17,8 +17,11 @@ type NavbarDesktopTopRowProps = {
   role?: string
   initials: string
   avatarImageUrl?: string | null
+  isAvatarBusy?: boolean
+  isSessionLoading?: boolean
   isUserMenuOpen: boolean
   onToggleUserMenu: () => void
+  onCloseUserMenu: () => void
   isSigningOut: boolean
   onSignOut: () => void
 }
@@ -37,8 +40,11 @@ export function NavbarDesktopTopRow({
   role,
   initials,
   avatarImageUrl = null,
+  isAvatarBusy = false,
+  isSessionLoading = false,
   isUserMenuOpen,
   onToggleUserMenu,
+  onCloseUserMenu,
   isSigningOut,
   onSignOut,
 }: NavbarDesktopTopRowProps) {
@@ -111,8 +117,11 @@ export function NavbarDesktopTopRow({
             role={role}
             initials={initials}
             avatarImageUrl={avatarImageUrl}
+            isAvatarBusy={isAvatarBusy}
+            isSessionLoading={isSessionLoading}
             isUserMenuOpen={isUserMenuOpen}
             onToggleUserMenu={onToggleUserMenu}
+            onCloseUserMenu={onCloseUserMenu}
             isSigningOut={isSigningOut}
             onSignOut={onSignOut}
             signInClassName="shrink-0 rounded-md bg-sky-600 px-3 py-1.5 text-sm text-white hover:bg-sky-700"

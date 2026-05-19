@@ -1,14 +1,15 @@
 import { API_BASE_URL } from '../auth/authConstants'
 import { refreshAccessToken } from '../auth/refreshAccessToken'
 
-export type EligibleStore = {
+export type FulfilmentStoreOption = {
   id: string
   name: string
+  canFulfil: boolean
 }
 
 export async function fetchEligibleStores(
   items: { productId: string; quantity: number }[],
-): Promise<EligibleStore[]> {
+): Promise<FulfilmentStoreOption[]> {
   const url = `${API_BASE_URL}/api/checkout/eligible-stores`
   const go = () =>
     fetch(url, {
@@ -38,6 +39,12 @@ export async function fetchEligibleStores(
     throw new Error('Unable to check store availability.')
   }
 
-  const data = (await response.json()) as { stores?: EligibleStore[] }
-  return data.stores ?? []
+  const data = (await response.json()) as {
+    stores?: { id: string; name: string; canFulfil?: boolean }[]
+  }
+  return (data.stores ?? []).map((store) => ({
+    id: store.id,
+    name: store.name,
+    canFulfil: store.canFulfil !== false,
+  }))
 }

@@ -6,6 +6,7 @@ type UserAvatarCircleProps = {
   initials: string
   sizeClassName?: string
   textClassName?: string
+  roundedClassName?: string
   isBusy?: boolean
   ariaLabel?: string
 }
@@ -22,6 +23,7 @@ export function UserAvatarCircle({
   initials,
   sizeClassName = 'h-8 w-8',
   textClassName = 'text-sm',
+  roundedClassName = 'rounded-full',
   isBusy = false,
   ariaLabel,
 }: UserAvatarCircleProps) {
@@ -74,7 +76,7 @@ export function UserAvatarCircle({
 
   return (
     <span
-      className={`relative inline-flex ${sizeClassName} shrink-0 items-center justify-center overflow-hidden rounded-full`}
+      className={`relative inline-flex ${sizeClassName} shrink-0 items-center justify-center overflow-hidden ${roundedClassName}`}
       aria-label={ariaLabel}
       aria-busy={showSpinner}
     >
@@ -106,7 +108,7 @@ export function UserAvatarCircle({
       {showSpinner ? (
         <span className="absolute inset-0 flex items-center justify-center bg-white/75" role="status">
           <span className="sr-only">Loading profile photo</span>
-          <FiRefreshCw className="h-4 w-4 animate-spin text-sky-600" aria-hidden="true" />
+          <FiRefreshCw className="h-[38%] w-[38%] min-h-4 min-w-4 animate-spin text-sky-600" aria-hidden="true" />
         </span>
       ) : null}
     </span>

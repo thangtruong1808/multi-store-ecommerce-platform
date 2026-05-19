@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useAppDispatch, useAppSelector } from '../app/hooks'
-import { fetchEligibleStores } from '../features/checkout/checkoutEligibility'
+import {
+  fetchEligibleStores,
+  type FulfilmentStoreOption,
+} from '../features/checkout/checkoutEligibility'
 import { createCheckoutSession } from '../features/checkout/checkoutThunks'
 import { removeLine, setLineQuantity } from '../features/cart/cartSlice'
 import { formatAudAmount } from '../components/home/formatAud'
@@ -14,7 +17,7 @@ export default function CartPage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [isCheckingOut, setIsCheckingOut] = useState(false)
 
-  const [eligibleStores, setEligibleStores] = useState<{ id: string; name: string }[]>([])
+  const [fulfilmentStores, setFulfilmentStores] = useState<FulfilmentStoreOption[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
   const [eligibilityError, setEligibilityError] = useState<string | null>(null)
@@ -24,9 +27,14 @@ export default function CartPage() {
     [items],
   )
 
+  const eligibleStores = useMemo(
+    () => fulfilmentStores.filter((store) => store.canFulfil),
+    [fulfilmentStores],
+  )
+
   useEffect(() => {
     if (!isAuthenticated || items.length === 0) {
-      setEligibleStores([])
+      setFulfilmentStores([])
       setSelectedStoreId(null)
       setEligibilityError(null)
       setEligibilityLoading(false)
@@ -44,19 +52,20 @@ export default function CartPage() {
         if (cancelled) {
           return
         }
-        setEligibleStores(stores)
-        if (stores.length === 1) {
-          setSelectedStoreId(stores[0].id)
-        } else if (stores.length === 0) {
+        setFulfilmentStores(stores)
+        const canFulfil = stores.filter((store) => store.canFulfil)
+        if (canFulfil.length === 1) {
+          setSelectedStoreId(canFulfil[0].id)
+        } else if (canFulfil.length === 0) {
           setSelectedStoreId(null)
         } else {
           setSelectedStoreId((prev) =>
-            prev && stores.some((s) => s.id === prev) ? prev : null,
+            prev && canFulfil.some((store) => store.id === prev) ? prev : null,
           )
         }
       } catch (e) {
         if (!cancelled) {
-          setEligibleStores([])
+          setFulfilmentStores([])
           setSelectedStoreId(null)
           setEligibilityError(e instanceof Error ? e.message : 'Unable to load stores.')
         }
@@ -164,19 +173,20 @@ export default function CartPage() {
 
           {isAuthenticated && items.length > 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <fieldset>
+              <fieldset disabled={eligibilityLoading} aria-busy={eligibilityLoading}>
                 <legend className="text-sm font-medium text-slate-800">Fulfil from store</legend>
                 <p className="mt-1 text-xs text-slate-500">
-                  Stock is reserved per store. Choose where your order should be fulfilled.
+                  Stock is reserved per store. Choose a location that can fulfil your full cart.
                 </p>
 
                 {eligibilityLoading ? (
-                  <div className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+                  <div className="mt-4 flex items-center gap-2 text-sm text-slate-600" role="status" aria-live="polite">
                     <span
                       className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600"
                       aria-hidden="true"
                     />
                     Checking store availability…
+                    <span className="sr-only">Loading store availability from server</span>
                   </div>
                 ) : null}
 
@@ -186,35 +196,47 @@ export default function CartPage() {
                   </p>
                 ) : null}
 
-                {!eligibilityLoading && !eligibilityError && eligibleStores.length === 0 ? (
+                {!eligibilityLoading && !eligibilityError && fulfilmentStores.length === 0 ? (
                   <p className="mt-4 text-sm text-amber-800" role="status">
-                    No store can fulfil this cart with current quantities. Try reducing quantities or remove items.
+                    No stores are available right now. Please try again later.
                   </p>
                 ) : null}
 
-                {!eligibilityLoading && eligibleStores.length === 1 ? (
-                  <p className="mt-4 text-sm text-slate-700">
-                    <span className="font-medium text-slate-900">{eligibleStores[0].name}</span>
-                    <span className="text-slate-500"> — has stock for your cart.</span>
+                {!eligibilityLoading && !eligibilityError && fulfilmentStores.length > 0 && eligibleStores.length === 0 ? (
+                  <p className="mt-4 text-sm text-amber-800" role="status">
+                    None of our locations can fulfil this cart with the quantities selected. Try reducing
+                    quantities or removing items.
                   </p>
                 ) : null}
 
-                {!eligibilityLoading && eligibleStores.length > 1 ? (
+                {!eligibilityLoading && fulfilmentStores.length > 0 ? (
                   <div className="mt-4 flex flex-col gap-3">
-                    {eligibleStores.map((store) => (
+                    {fulfilmentStores.map((store) => (
                       <label
                         key={store.id}
-                        className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-sky-500"
+                        className={`flex min-h-[44px] items-start gap-3 rounded-md border px-3 py-2.5 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-sky-500 ${
+                          store.canFulfil
+                            ? 'cursor-pointer border-slate-200 hover:bg-slate-50'
+                            : 'cursor-not-allowed border-slate-200 bg-slate-50'
+                        }`}
                       >
                         <input
                           type="radio"
                           name="fulfilment-store"
                           value={store.id}
                           checked={selectedStoreId === store.id}
+                          disabled={!store.canFulfil}
                           onChange={() => setSelectedStoreId(store.id)}
-                          className="mt-1 h-4 w-4 shrink-0 border-slate-300 text-sky-600 focus:ring-sky-500"
+                          className="mt-1 h-4 w-4 shrink-0 border-slate-300 text-sky-600 focus:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
                         />
-                        <span className="text-sm font-medium text-slate-900">{store.name}</span>
+                        <span className="min-w-0 flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-slate-900">{store.name}</span>
+                          {store.canFulfil ? (
+                            <span className="text-xs text-emerald-700">Available for your cart</span>
+                          ) : (
+                            <span className="text-xs text-slate-500">No stock for your cart at this location</span>
+                          )}
+                        </span>
                       </label>
                     ))}
                   </div>

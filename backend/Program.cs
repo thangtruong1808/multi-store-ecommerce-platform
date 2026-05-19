@@ -1,6 +1,7 @@
 using System.Security.Claims; // Claims
 using System.Text; // Encoding
 using backend.Auth;
+using backend.Invoices;
 using backend.Products;
 using Microsoft.AspNetCore.Authentication.JwtBearer; // JWT authentication
 using Microsoft.IdentityModel.Tokens; // JWT token validation
@@ -65,6 +66,15 @@ builder.Services.Configure<AzureCommunicationEmailOptions>(options =>
     options.PublicAppBaseUrl = (builder.Configuration["PUBLIC_APP_BASE_URL"] ?? string.Empty).Trim().TrimEnd('/');
 });
 builder.Services.AddSingleton<AzureCommunicationEmailService>();
+
+builder.Services.Configure<OrderInvoiceOptions>(options =>
+{
+    options.BusinessName = "Multi-Store Ecommerce Platform";
+    options.BusinessShortName = "Multi-Store";
+    options.SupportEmail = (builder.Configuration["CONTACT_FORM_TO_EMAIL"] ?? string.Empty).Trim();
+});
+builder.Services.AddSingleton<OrderInvoicePdfGenerator>();
+builder.Services.AddSingleton<OrderInvoiceService>();
 
 // --- Authentication and authorization (step 2: add after the API + DB are in place) ---
 var jwtSecret = builder.Configuration["JWT_SECRET"] ?? string.Empty; // Get the JWT secret from the configuration

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { formatAudAmount } from '../components/home/formatAud'
+import { OrderInvoiceDownloadButton } from '../components/orders/OrderInvoiceDownloadButton'
 import {
   fetchCustomerOrders,
   type CustomerOrderListItem,
@@ -96,7 +97,10 @@ export default function OrdersHistoryPage() {
                   Status
                 </th>
                 <th scope="col" className="px-4 py-3 text-right">
-                  <span className="sr-only">Actions</span>
+                  Invoice
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  <span className="sr-only">View order</span>
                 </th>
               </tr>
             </thead>
@@ -117,6 +121,13 @@ export default function OrdersHistoryPage() {
                   </td>
                   <td className="hidden align-top px-4 py-3 text-slate-600 md:table-cell">
                     <span className="text-xs">{formatOrderLabels(o.status, o.paymentStatus)}</span>
+                  </td>
+                  <td className="align-top px-4 py-3 text-right">
+                    <OrderInvoiceDownloadButton
+                      orderId={o.id}
+                      orderNumber={o.orderNumber}
+                      paymentStatus={o.paymentStatus}
+                    />
                   </td>
                   <td className="align-top px-4 py-3 text-right">
                     <Link

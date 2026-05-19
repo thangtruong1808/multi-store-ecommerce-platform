@@ -4,7 +4,7 @@ namespace backend.Checkout;
 
 internal static class CheckoutStoreAndPricing
 {
-    /// <summary>Active stores that can fulfil every cart line with sufficient stock.</summary>
+    /// <summary>All active stores with whether each can fulfil every cart line with sufficient stock.</summary>
     public static async Task<IReadOnlyList<EligibleStoreOption>> ListEligibleStoresAsync(
         NpgsqlConnection conn,
         IReadOnlyList<CheckoutSessionLineRequest> items,
@@ -39,17 +39,17 @@ internal static class CheckoutStoreAndPricing
             }
         }
 
-        var eligible = new List<EligibleStoreOption>();
+        var options = new List<EligibleStoreOption>();
         foreach (var (sid, name) in storeRows)
         {
             var lines = await TryBuildLinesForStoreAsync(conn, sid, items, cancellationToken);
-            if (lines is not null)
-            {
-                eligible.Add(new EligibleStoreOption(sid, name));
-            }
+            options.Add(new EligibleStoreOption(sid, name, lines is not null));
         }
 
-        return eligible;
+        return options
+            .OrderByDescending(static s => s.CanFulfil)
+            .ThenBy(static s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     public static async Task<List<ValidatedCheckoutLine>?> TryBuildLinesForStoreAsync(

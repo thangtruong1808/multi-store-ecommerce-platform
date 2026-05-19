@@ -15,8 +15,11 @@ type NavbarMobileBarProps = {
   role?: string
   initials: string
   avatarImageUrl?: string | null
+  isAvatarBusy?: boolean
+  isSessionLoading?: boolean
   isUserMenuOpen: boolean
   onToggleUserMenu: () => void
+  onCloseUserMenu: () => void
   isSigningOut: boolean
   onSignOut: () => void
 }
@@ -33,8 +36,11 @@ export function NavbarMobileBar({
   role,
   initials,
   avatarImageUrl = null,
+  isAvatarBusy = false,
+  isSessionLoading = false,
   isUserMenuOpen,
   onToggleUserMenu,
+  onCloseUserMenu,
   isSigningOut,
   onSignOut,
 }: NavbarMobileBarProps) {
@@ -78,8 +84,11 @@ export function NavbarMobileBar({
           role={role}
           initials={initials}
           avatarImageUrl={avatarImageUrl}
+          isAvatarBusy={isAvatarBusy}
+          isSessionLoading={isSessionLoading}
           isUserMenuOpen={isUserMenuOpen}
           onToggleUserMenu={onToggleUserMenu}
+          onCloseUserMenu={onCloseUserMenu}
           isSigningOut={isSigningOut}
           onSignOut={onSignOut}
           signInClassName="shrink-0 rounded-md bg-sky-600 px-2.5 py-1.5 text-xs text-white hover:bg-sky-700 sm:px-3 sm:text-sm"

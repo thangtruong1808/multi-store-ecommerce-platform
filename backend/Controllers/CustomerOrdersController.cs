@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Security.Claims;
+using backend.Invoices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -12,10 +13,12 @@ namespace backend.Controllers;
 public sealed class CustomerOrdersController : ControllerBase
 {
     private readonly NpgsqlDataSource _dataSource;
+    private readonly OrderInvoiceService _invoiceService;
 
-    public CustomerOrdersController(NpgsqlDataSource dataSource)
+    public CustomerOrdersController(NpgsqlDataSource dataSource, OrderInvoiceService invoiceService)
     {
         _dataSource = dataSource;
+        _invoiceService = invoiceService;
     }
 
     public sealed record CustomerOrderListItemDto(
@@ -173,6 +176,27 @@ public sealed class CustomerOrdersController : ControllerBase
             header.Status,
             header.PaymentStatus,
             items));
+    }
+
+    [HttpGet("{orderId:guid}/invoice")]
+    public async Task<IActionResult> DownloadInvoice(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        var userId = RequireUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _invoiceService.GenerateForCustomerAsync(orderId, userId.Value, cancellationToken);
+        return result.Status switch
+        {
+            "success" => File(result.Pdf!, "application/pdf", result.FileName),
+            "payment_pending" => BadRequest(new
+            {
+                message = "Invoice is available after payment is completed.",
+            }),
+            _ => NotFound(new { message = "Order not found." }),
+        };
     }
 
     private static DateTimeOffset ReadPlacedAt(DbDataReader reader, int ordinal)

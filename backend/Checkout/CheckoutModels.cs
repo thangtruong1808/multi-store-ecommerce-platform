@@ -8,7 +8,7 @@ public sealed record CreateCheckoutSessionRequest(
 
 public sealed record EligibleStoresRequest(IReadOnlyList<CheckoutSessionLineRequest> Items);
 
-public sealed record EligibleStoreOption(Guid Id, string Name);
+public sealed record EligibleStoreOption(Guid Id, string Name, bool CanFulfil);
 
 public sealed record CreateCheckoutSessionResponse(string Url);
 
