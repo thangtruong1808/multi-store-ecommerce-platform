@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { formatAudAmount } from '../components/home/formatAud'
@@ -6,6 +6,7 @@ import {
   fetchCustomerOrder,
   type CustomerOrderDetail,
 } from '../features/orders/customerOrdersApi'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>()
@@ -44,6 +45,12 @@ export default function OrderDetailPage() {
       cancelled = true
     }
   }, [orderId])
+
+  const documentTitle = useMemo(
+    () => (order?.orderNumber ? `Order ${order.orderNumber}` : 'Order details'),
+    [order?.orderNumber],
+  )
+  useDocumentTitle(documentTitle)
 
   if (!orderId) {
     return (

@@ -5,12 +5,15 @@ import { FiCheckCircle, FiKey, FiMail } from 'react-icons/fi'
 import { useAppSelector } from '../app/hooks'
 import { AuthFormSpinner } from '../components/auth/AuthFormSpinner'
 import { requestPasswordReset } from '../features/auth/passwordResetApi'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const resetPasswordSchema = z.object({
   email: z.string().trim().email('Please enter a valid email address'),
 })
 
 function ResetPasswordPage() {
+  useDocumentTitle('Reset password')
+
   const { isAuthenticated } = useAppSelector((state) => state.auth)
   const [email, setEmail] = useState('')
   const [resetError, setResetError] = useState<string | null>(null)

@@ -1,4 +1,3 @@
-import { mockData } from './dashboardConstants'
 import type {
   ActivityLogsResponse,
   CategoriesResponse,
@@ -7,22 +6,11 @@ import type {
   ProductsResponse,
   StoresResponse,
   UsersResponse,
+  VouchersResponse,
 } from './dashboardTypes'
 
-/** Mock / static feature rows shown for vouchers. */
-export function getNonUserRows(activeFeature: DashboardFeatureKey) {
-  if (
-    activeFeature === 'users' ||
-    activeFeature === 'stores' ||
-    activeFeature === 'categories' ||
-    activeFeature === 'products' ||
-    activeFeature === 'activityLogs' ||
-    activeFeature === 'invoices' ||
-    activeFeature === 'overview'
-  ) {
-    return []
-  }
-  return mockData[activeFeature]
+export function getNonUserRows(_activeFeature: DashboardFeatureKey) {
+  return []
 }
 
 export function deriveDashboardPagination(args: {
@@ -35,6 +23,7 @@ export function deriveDashboardPagination(args: {
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
   invoicesState: InvoicesResponse
+  vouchersState: VouchersResponse
 }) {
   const {
     activeFeature,
@@ -46,6 +35,7 @@ export function deriveDashboardPagination(args: {
     productsState,
     activityLogsState,
     invoicesState,
+    vouchersState,
   } = args
 
   const nonUserRows = getNonUserRows(activeFeature)
@@ -67,7 +57,9 @@ export function deriveDashboardPagination(args: {
               ? activityLogsState.totalItems
               : activeFeature === 'invoices'
                 ? invoicesState.totalItems
-                : nonUserTotal
+                : activeFeature === 'vouchers'
+                  ? vouchersState.totalItems
+                  : nonUserTotal
 
   const totalPages =
     activeFeature === 'users'
@@ -82,7 +74,9 @@ export function deriveDashboardPagination(args: {
               ? activityLogsState.totalPages
               : activeFeature === 'invoices'
                 ? invoicesState.totalPages
-                : nonUserTotalPages
+                : activeFeature === 'vouchers'
+                  ? vouchersState.totalPages
+                  : nonUserTotalPages
 
   const currentItems =
     activeFeature === 'users'
@@ -97,7 +91,9 @@ export function deriveDashboardPagination(args: {
               ? activityLogsState.items.length
               : activeFeature === 'invoices'
                 ? invoicesState.items.length
-                : nonUserItems.length
+                : activeFeature === 'vouchers'
+                  ? vouchersState.items.length
+                  : nonUserItems.length
 
   return { nonUserItems, totalItems, totalPages, currentItems }
 }

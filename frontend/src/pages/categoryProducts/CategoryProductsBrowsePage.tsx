@@ -10,6 +10,7 @@ import {
   getPublicCategoryPathRootToLeaf,
 } from '../../components/navbar/categoryTree'
 import { categoryProductsPath, departmentBrowsePath, publicProductDetailPath } from './categoryProductRoutes'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 type PublicProduct = {
   id: string
@@ -195,6 +196,8 @@ export function CategoryProductsBySlugPage() {
   }, [apiBaseUrl, decodedCategorySlug, decodedLevel1, legacyCategoryIdParam, navigate, searchKeyword])
 
   const pageTitle = categoryMeta?.name ?? (decodedCategorySlug || 'Category')
+  const documentTitle = searchKeyword ? `${pageTitle} — Search` : pageTitle
+  useDocumentTitle(documentTitle)
 
   return (
     <div className="mx-auto w-full max-w-[min(100%,120rem)] px-4 md:px-6 xl:px-8">

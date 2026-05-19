@@ -6,11 +6,18 @@ import {
   fetchEligibleStores,
   type FulfilmentStoreOption,
 } from '../features/checkout/checkoutEligibility'
+import {
+  fetchCheckoutQuote,
+  type CheckoutQuoteResponse,
+} from '../features/checkout/checkoutQuote'
 import { createCheckoutSession } from '../features/checkout/checkoutThunks'
 import { removeLine, setLineQuantity } from '../features/cart/cartSlice'
 import { formatAudAmount } from '../components/home/formatAud'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function CartPage() {
+  useDocumentTitle('Shopping cart')
+
   const dispatch = useAppDispatch()
   const items = useAppSelector((s) => s.cart.items)
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated)
@@ -22,6 +29,12 @@ export default function CartPage() {
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
   const [eligibilityError, setEligibilityError] = useState<string | null>(null)
 
+  const [voucherInput, setVoucherInput] = useState('')
+  const [appliedVoucherCode, setAppliedVoucherCode] = useState<string | undefined>(undefined)
+  const [quote, setQuote] = useState<CheckoutQuoteResponse | null>(null)
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
+
   const cartSignature = useMemo(
     () => items.map((i) => `${i.productId}:${i.quantity}`).join('|'),
     [items],
@@ -30,6 +43,11 @@ export default function CartPage() {
   const eligibleStores = useMemo(
     () => fulfilmentStores.filter((store) => store.canFulfil),
     [fulfilmentStores],
+  )
+
+  const selectedStoreName = useMemo(
+    () => fulfilmentStores.find((s) => s.id === selectedStoreId)?.name ?? null,
+    [fulfilmentStores, selectedStoreId],
   )
 
   useEffect(() => {
@@ -49,9 +67,7 @@ export default function CartPage() {
         const stores = await fetchEligibleStores(
           items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         )
-        if (cancelled) {
-          return
-        }
+        if (cancelled) return
         setFulfilmentStores(stores)
         const canFulfil = stores.filter((store) => store.canFulfil)
         if (canFulfil.length === 1) {
@@ -70,9 +86,7 @@ export default function CartPage() {
           setEligibilityError(e instanceof Error ? e.message : 'Unable to load stores.')
         }
       } finally {
-        if (!cancelled) {
-          setEligibilityLoading(false)
-        }
+        if (!cancelled) setEligibilityLoading(false)
       }
     }
 
@@ -82,14 +96,64 @@ export default function CartPage() {
     }
   }, [isAuthenticated, cartSignature])
 
-  const subtotal = items.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+  useEffect(() => {
+    if (!isAuthenticated || !selectedStoreId || items.length === 0) {
+      setQuote(null)
+      setQuoteError(null)
+      setQuoteLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const run = async () => {
+      setQuoteLoading(true)
+      setQuoteError(null)
+      try {
+        const result = await fetchCheckoutQuote(
+          selectedStoreId,
+          items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          appliedVoucherCode,
+        )
+        if (!cancelled) setQuote(result)
+      } catch (e) {
+        if (!cancelled) {
+          setQuote(null)
+          setQuoteError(e instanceof Error ? e.message : 'Unable to load pricing.')
+        }
+      } finally {
+        if (!cancelled) setQuoteLoading(false)
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated, selectedStoreId, cartSignature, appliedVoucherCode, items])
+
+  const cartSubtotal = items.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)
+  const displaySubtotal = quote?.subtotal ?? cartSubtotal
+  const displayDiscount = quote?.discountTotal ?? 0
+  const displayTotal = quote?.grandTotal ?? cartSubtotal
 
   const canAttemptCheckout =
     isAuthenticated &&
     items.length > 0 &&
     !eligibilityLoading &&
+    !quoteLoading &&
     eligibleStores.length > 0 &&
-    Boolean(selectedStoreId)
+    Boolean(selectedStoreId) &&
+    !quote?.voucherError
+
+  const handleApplyVoucher = () => {
+    const code = voucherInput.trim()
+    setAppliedVoucherCode(code || undefined)
+  }
+
+  const handleSuggestedVoucher = (code: string) => {
+    setVoucherInput(code)
+    setAppliedVoucherCode(code)
+  }
 
   const handleCheckout = async () => {
     setCheckoutError(null)
@@ -102,7 +166,9 @@ export default function CartPage() {
       return
     }
     setIsCheckingOut(true)
-    const result = await dispatch(createCheckoutSession(selectedStoreId))
+    const result = await dispatch(
+      createCheckoutSession({ storeId: selectedStoreId, voucherCode: appliedVoucherCode }),
+    )
     setIsCheckingOut(false)
     if (createCheckoutSession.fulfilled.match(result)) {
       window.location.assign(result.payload)
@@ -148,9 +214,7 @@ export default function CartPage() {
                       value={line.quantity}
                       onChange={(e) => {
                         const v = Number.parseInt(e.target.value, 10)
-                        if (!Number.isFinite(v)) {
-                          return
-                        }
+                        if (!Number.isFinite(v)) return
                         dispatch(setLineQuantity({ productId: line.productId, quantity: v }))
                       }}
                       aria-label={`Quantity for ${line.name}`}
@@ -186,7 +250,6 @@ export default function CartPage() {
                       aria-hidden="true"
                     />
                     Checking store availability…
-                    <span className="sr-only">Loading store availability from server</span>
                   </div>
                 ) : null}
 
@@ -204,8 +267,7 @@ export default function CartPage() {
 
                 {!eligibilityLoading && !eligibilityError && fulfilmentStores.length > 0 && eligibleStores.length === 0 ? (
                   <p className="mt-4 text-sm text-amber-800" role="status">
-                    None of our locations can fulfil this cart with the quantities selected. Try reducing
-                    quantities or removing items.
+                    None of our locations can fulfil this cart with the quantities selected.
                   </p>
                 ) : null}
 
@@ -245,26 +307,112 @@ export default function CartPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-lg font-semibold text-slate-900">
-              Subtotal{' '}
-              <span className="tabular-nums">{`A$${formatAudAmount(subtotal)}`}</span>
-            </p>
+          {isAuthenticated && selectedStoreId ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <h2 className="text-sm font-medium text-slate-800">Promo code</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Vouchers apply to the selected store only. Prices below use store-specific pricing.
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  value={voucherInput}
+                  onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                  placeholder="Enter code"
+                  className="min-h-[44px] flex-1 rounded-md border border-slate-200 px-3 py-2 font-mono text-sm uppercase sm:min-h-0"
+                  aria-label="Voucher code"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyVoucher}
+                  disabled={quoteLoading}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 sm:min-h-0"
+                >
+                  Apply
+                </button>
+              </div>
+
+              {quote?.suggestedVouchers && quote.suggestedVouchers.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {quote.suggestedVouchers.map((s) => (
+                    <button
+                      key={s.code}
+                      type="button"
+                      onClick={() => handleSuggestedVoucher(s.code)}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                        s.appliesAtSelectedStore
+                          ? 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100'
+                          : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                      }`}
+                    >
+                      {s.code} · {s.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {quoteLoading ? (
+                <div className="mt-3 flex items-center gap-2 text-sm text-slate-600" role="status">
+                  <span
+                    className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600"
+                    aria-hidden="true"
+                  />
+                  Calculating total…
+                </div>
+              ) : null}
+
+              {quote?.voucherError ? (
+                <p className="mt-3 text-sm text-rose-600" role="alert">
+                  {quote.voucherError}
+                </p>
+              ) : null}
+
+              {quoteError ? (
+                <p className="mt-3 text-sm text-rose-600" role="alert">
+                  {quoteError}
+                </p>
+              ) : null}
+
+              {quote?.crossStoreWarnings?.map((w) => (
+                <p key={w.code} className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                  <span className="font-mono font-semibold">{w.code}</span> ({w.label}) does not apply at{' '}
+                  {selectedStoreName ?? 'your selected store'}. Available at: {w.storeNames.join(', ')}.
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1 text-slate-900">
+              <p className="text-sm text-slate-600">
+                Subtotal{' '}
+                <span className="tabular-nums font-medium">{`A$${formatAudAmount(displaySubtotal)}`}</span>
+              </p>
+              {displayDiscount > 0 ? (
+                <p className="text-sm text-emerald-700">
+                  Discount
+                  {quote?.voucherLabel ? ` (${quote.voucherLabel})` : ''}:{' '}
+                  <span className="tabular-nums font-medium">{`-A$${formatAudAmount(displayDiscount)}`}</span>
+                </p>
+              ) : null}
+              <p className="text-lg font-semibold">
+                Total <span className="tabular-nums">{`A$${formatAudAmount(displayTotal)}`}</span>
+              </p>
+            </div>
             <button
               type="button"
               className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-sky-600 px-4 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60 sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
-              disabled={isCheckingOut || !canAttemptCheckout}
-              aria-busy={isCheckingOut}
+              disabled={isCheckingOut || quoteLoading || !canAttemptCheckout}
+              aria-busy={isCheckingOut || quoteLoading}
               onClick={() => void handleCheckout()}
             >
-              {isCheckingOut ? (
+              {isCheckingOut || quoteLoading ? (
                 <span
                   className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                   aria-hidden="true"
                 />
               ) : null}
-              {isCheckingOut ? 'Redirecting…' : 'Pay with card (test)'}
-              {isCheckingOut ? <span className="sr-only">Checkout in progress</span> : null}
+              {isCheckingOut ? 'Redirecting…' : quoteLoading ? 'Updating total…' : 'Pay with card (test)'}
             </button>
           </div>
 

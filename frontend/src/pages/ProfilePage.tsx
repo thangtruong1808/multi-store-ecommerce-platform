@@ -7,6 +7,7 @@ import { clearAuthErrors, logoutUser, patchAuthUser, updateProfile } from '../fe
 import { UserAvatarCircle } from '../components/auth/UserAvatarCircle'
 import { uploadProfileAvatar } from '../features/auth/profileAvatarApi'
 import { buildProductMediaUrl, getConfiguredProductMediaBaseUrl, loadProductMediaPublicBaseUrl } from '../utils/productMediaUrl'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const profileSchema = z.object({
   firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
@@ -54,6 +55,8 @@ const profileSchema = z.object({
 type ProfileForm = z.infer<typeof profileSchema>
 
 function ProfilePage() {
+  useDocumentTitle('My profile')
+
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const { isAuthenticated, user, actionLoading, error, fieldErrors } = useAppSelector((state) => state.auth)

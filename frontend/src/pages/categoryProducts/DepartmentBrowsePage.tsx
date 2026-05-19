@@ -4,6 +4,8 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import type { PublicCategory } from '../../components/navbar/types'
 import { getLevel2ByParent, getLevel3ByParent } from '../../components/navbar/categoryTree'
 import { categoryProductsPath } from './categoryProductRoutes'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { StorefrontSpinner } from '../../components/ui/StorefrontSpinner'
 
 function safeDecode(segment: string) {
   try {
@@ -89,6 +91,7 @@ export function DepartmentBrowsePage() {
     searchKeyword.length > 0 ? `?${new URLSearchParams({ q: searchKeyword }).toString()}` : ''
 
   const pageTitle = level1Category?.name ?? (decodedLevel1 || 'Department')
+  useDocumentTitle(level1Category?.name ?? 'Shop')
 
   return (
     <div className="mx-auto w-full max-w-[min(100%,120rem)] px-4 md:px-6 xl:px-8">
@@ -120,9 +123,10 @@ export function DepartmentBrowsePage() {
         ) : null}
 
         {!error && isLoading ? (
-          <p className="mt-8 text-sm text-slate-500" aria-busy="true">
+          <div className="mt-8 flex items-center gap-2 text-sm text-slate-600" role="status" aria-live="polite" aria-busy="true">
+            <StorefrontSpinner />
             Loading categories…
-          </p>
+          </div>
         ) : null}
 
         {!error && !isLoading && !level1Category ? (

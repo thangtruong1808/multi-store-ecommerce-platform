@@ -1,7 +1,10 @@
 import { FiHeadphones } from 'react-icons/fi'
 import { ContactForm } from '../components/contact/ContactForm'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function ContactPage() {
+  useDocumentTitle('Contact')
+
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-gradient-to-b from-slate-100/90 via-white to-slate-50/90">
       <div className="mx-auto min-w-0 w-full max-w-[min(100%,120rem)] px-4 pb-12 pt-6 md:px-6 md:pb-16 md:pt-8 xl:px-8">

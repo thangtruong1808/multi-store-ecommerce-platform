@@ -7,6 +7,8 @@ import type {
   StoreFormState,
   StoreItem,
   UserItem,
+  VoucherFormState,
+  VoucherItem,
 } from './dashboardTypes'
 
 function sortedIdList(ids: string[]) {
@@ -101,6 +103,40 @@ export function computeHasProductChanges(editingProduct: ProductDetail | null, p
     productForm.videoUrls.filter((item) => item.trim().length > 0).join('|') !== editingProduct.videoUrls.join('|') ||
     prevStores !== nextStores ||
     normalizedStockSignature(productForm) !== baselineStockSignature(editingProduct)
+  )
+}
+
+export function computeHasVoucherChanges(editingVoucher: VoucherItem | null, voucherForm: VoucherFormState) {
+  if (editingVoucher === null) {
+    return (
+      voucherForm.code.trim().length > 0 &&
+      voucherForm.discountValue.trim().length > 0 &&
+      voucherForm.expiresAt.trim().length > 0 &&
+      voucherForm.storeIds.length > 0
+    )
+  }
+
+  const extended = editingVoucher as VoucherItem & { storeIds?: string[]; productIds?: string[] }
+  const detailStoreIds = [...voucherForm.storeIds].sort().join(',')
+  const baselineStores = [...(extended.storeIds ?? [])].sort().join(',')
+  const detailProductIds = [...voucherForm.productIds].sort().join(',')
+  const baselineProducts = [...(extended.productIds ?? [])].sort().join(',')
+
+  return (
+    voucherForm.code.trim().toUpperCase() !== editingVoucher.code ||
+    voucherForm.description.trim() !== (editingVoucher.description ?? '') ||
+    voucherForm.discountType !== editingVoucher.discountType ||
+    Number(voucherForm.discountValue || 0) !== Number(editingVoucher.discountValue) ||
+    voucherForm.startsAt !==
+      (editingVoucher.startsAt ? new Date(editingVoucher.startsAt).toISOString().slice(0, 10) : '') ||
+    voucherForm.expiresAt !== new Date(editingVoucher.expiresAt).toISOString().slice(0, 10) ||
+    voucherForm.isActive !== editingVoucher.isActive ||
+    (voucherForm.minOrderAmount.trim() || '') !==
+      (editingVoucher.minOrderAmount != null ? String(editingVoucher.minOrderAmount) : '') ||
+    (voucherForm.maxRedemptions.trim() || '') !==
+      (editingVoucher.maxRedemptions != null ? String(editingVoucher.maxRedemptions) : '') ||
+    detailStoreIds !== baselineStores ||
+    detailProductIds !== baselineProducts
   )
 }
 

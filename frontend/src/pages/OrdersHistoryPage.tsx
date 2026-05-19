@@ -7,6 +7,7 @@ import {
   fetchCustomerOrders,
   type CustomerOrderListItem,
 } from '../features/orders/customerOrdersApi'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 function formatOrderLabels(status: string, paymentStatus: string): string {
   const s = status.replace(/_/g, ' ')
@@ -15,6 +16,8 @@ function formatOrderLabels(status: string, paymentStatus: string): string {
 }
 
 export default function OrdersHistoryPage() {
+  useDocumentTitle('Order history')
+
   const [orders, setOrders] = useState<CustomerOrderListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HomeProductCard, type HomeProductCardModel } from '../components/home/HomeProductCard'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { StorefrontSpinner } from '../components/ui/StorefrontSpinner'
 
 type SpotlightResponse = {
   items?: HomeProductCardModel[]
@@ -31,6 +33,8 @@ async function fetchClearanceProducts(): Promise<HomeProductCardModel[]> {
 }
 
 export default function ClearancePage() {
+  useDocumentTitle('Clearance')
+
   const [items, setItems] = useState<HomeProductCardModel[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -78,14 +82,20 @@ export default function ClearancePage() {
           ) : null}
 
           {loading ? (
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+            <>
+              <div className="mt-8 flex items-center gap-2 text-sm text-slate-600" role="status" aria-live="polite">
+                <StorefrontSpinner />
+                Loading clearance products…
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
                   className="h-[280px] animate-pulse rounded-xl border border-slate-200/90 bg-slate-100/80"
                 />
               ))}
-            </div>
+              </div>
+            </>
           ) : null}
 
           {!loading && !error && items.length === 0 ? (

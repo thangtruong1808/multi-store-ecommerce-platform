@@ -34,6 +34,9 @@ public partial class AuthController : ControllerBase
         ("categories:read", "Read categories"),
         ("products:read", "Read products"),
         ("vouchers:read", "Read vouchers"),
+        ("vouchers:create", "Create vouchers"),
+        ("vouchers:update", "Update vouchers"),
+        ("vouchers:delete", "Delete vouchers"),
         ("invoices:read", "Read invoices"),
         ("activity_logs:read", "Read activity logs")
     ];
@@ -49,6 +52,9 @@ public partial class AuthController : ControllerBase
             "categories:read",
             "products:read",
             "vouchers:read",
+            "vouchers:create",
+            "vouchers:update",
+            "vouchers:delete",
             "invoices:read",
             "activity_logs:read"
         ],
@@ -60,6 +66,9 @@ public partial class AuthController : ControllerBase
             "categories:read",
             "products:read",
             "vouchers:read",
+            "vouchers:create",
+            "vouchers:update",
+            "vouchers:delete",
             "invoices:read",
             "activity_logs:read"
         ],

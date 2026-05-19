@@ -9,6 +9,7 @@ import {
   computeHasEditChanges,
   computeHasProductChanges,
   computeHasStoreChanges,
+  computeHasVoucherChanges,
 } from '../dashboardDerivedFlags'
 import { deriveDashboardPagination } from '../dashboardPaginationUtils'
 import type { DashboardFeatureKey } from '../dashboardTypes'
@@ -21,6 +22,7 @@ import { useDashboardSessionStores } from './useDashboardSessionStores'
 import { useDashboardInvoicesBlock } from './useDashboardInvoicesBlock'
 import { useDashboardOverviewBlock } from './useDashboardOverviewBlock'
 import { useDashboardUsersBlock } from './useDashboardUsersBlock'
+import { useDashboardVouchersBlock } from './useDashboardVouchersBlock'
 
 export function useDashboardModel() {
   const dispatch = useAppDispatch()
@@ -102,6 +104,16 @@ export function useDashboardModel() {
     chrome.setInlineStatusType,
   )
 
+  const vouchers = useDashboardVouchersBlock(
+    activeFeature,
+    page,
+    pageSize,
+    sessionStores.managedStores,
+    chrome.setInlineStatusMessage,
+    chrome.setInlineStatusType,
+    dashboardApiReady,
+  )
+
   const pagination = useMemo(
     () =>
       deriveDashboardPagination({
@@ -114,6 +126,7 @@ export function useDashboardModel() {
         productsState: products.productsState,
         activityLogsState: users.activityLogsState,
         invoicesState: invoices.invoicesState,
+        vouchersState: vouchers.vouchersState,
       }),
     [
       activeFeature,
@@ -125,6 +138,7 @@ export function useDashboardModel() {
       products.productsState,
       users.activityLogsState,
       invoices.invoicesState,
+      vouchers.vouchersState,
     ],
   )
 
@@ -143,6 +157,10 @@ export function useDashboardModel() {
   const hasStoreChanges = useMemo(
     () => computeHasStoreChanges(stores.editingStore, stores.storeForm),
     [stores.editingStore, stores.storeForm],
+  )
+  const hasVoucherChanges = useMemo(
+    () => computeHasVoucherChanges(vouchers.editingVoucher, vouchers.voucherForm),
+    [vouchers.editingVoucher, vouchers.voucherForm],
   )
 
   const fullName = useMemo(
@@ -164,6 +182,7 @@ export function useDashboardModel() {
     products.productsError ??
     users.activityLogsError ??
     invoices.invoicesError ??
+    vouchers.vouchersError ??
     overview.statisticsError
 
   return {
@@ -195,11 +214,13 @@ export function useDashboardModel() {
     users,
     invoices,
     overview,
+    vouchers,
 
     hasEditChanges,
     hasCategoryChanges,
     hasProductChanges,
     hasStoreChanges,
+    hasVoucherChanges,
 
     handleLogout,
   }

@@ -5,6 +5,7 @@ import { FiCheckCircle, FiKey, FiLock } from 'react-icons/fi'
 import { useAppSelector } from '../app/hooks'
 import { AuthFormSpinner } from '../components/auth/AuthFormSpinner'
 import { confirmPasswordReset } from '../features/auth/passwordResetApi'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const confirmResetSchema = z
   .object({
@@ -17,6 +18,8 @@ const confirmResetSchema = z
   })
 
 function ConfirmResetPasswordPage() {
+  useDocumentTitle('Set new password')
+
   const { isAuthenticated } = useAppSelector((state) => state.auth)
   const [searchParams] = useSearchParams()
   const token = useMemo(() => searchParams.get('token')?.trim() ?? '', [searchParams])

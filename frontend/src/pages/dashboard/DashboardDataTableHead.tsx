@@ -40,6 +40,15 @@ export function DashboardDataTableHead({ activeFeature }: DashboardDataTableHead
             <th className="px-3 py-2.5 font-medium">Status</th>
             <th className="px-3 py-2.5 font-medium">Actions</th>
           </>
+        ) : activeFeature === 'vouchers' ? (
+          <>
+            <th className="px-3 py-2.5 font-medium">Code</th>
+            <th className="px-3 py-2.5 font-medium">Discount</th>
+            <th className="px-3 py-2.5 font-medium">Stores</th>
+            <th className="px-3 py-2.5 font-medium">Expires</th>
+            <th className="px-3 py-2.5 font-medium">Status</th>
+            <th className="px-3 py-2.5 font-medium">Actions</th>
+          </>
         ) : activeFeature === 'activityLogs' ? (
           <>
             <th className="px-3 py-2.5 font-medium">Full Name</th>

@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { FiCheckCircle, FiLock, FiMail, FiPhone, FiUser, FiUserPlus } from 'react-icons/fi'
 import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { clearAuthErrors, registerUser } from '../features/auth/authSlice'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const registerSchema = z
   .object({
@@ -33,6 +34,8 @@ type RegisterForm = {
 }
 
 function RegisterPage() {
+  useDocumentTitle('Register')
+
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   // The useAppSelector hook is used to select the state from the store.

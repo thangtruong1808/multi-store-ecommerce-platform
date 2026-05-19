@@ -267,3 +267,46 @@ export type CategoryFormState = {
   parentId: 'none' | string
   imageS3Key: string
 }
+
+export type VoucherItem = {
+  id: string
+  code: string
+  description: string | null
+  discountType: 'percent' | 'fixed_amount'
+  discountValue: number
+  startsAt: string | null
+  expiresAt: string
+  isActive: boolean
+  minOrderAmount: number | null
+  maxRedemptions: number | null
+  redemptionCount: number
+  createdAt: string
+  updatedAt: string
+  storeNames: string
+  storeCount: number
+  productCount: number
+  status: string
+  discountLabel: string
+}
+
+export type VouchersResponse = {
+  items: VoucherItem[]
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
+export type VoucherFormState = {
+  code: string
+  description: string
+  discountType: 'percent' | 'fixed_amount'
+  discountValue: string
+  startsAt: string
+  expiresAt: string
+  isActive: boolean
+  minOrderAmount: string
+  maxRedemptions: string
+  storeIds: string[]
+  productIds: string[]
+}

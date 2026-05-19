@@ -1,6 +1,7 @@
 using System.Text;
 using backend.Auth;
 using backend.Checkout;
+using backend.Vouchers;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using NpgsqlTypes;
@@ -199,6 +200,12 @@ public sealed class StripeWebhookController : ControllerBase
         if (newlyCompleted)
         {
             await CheckoutStock.ApplyStockOutForOrderAsync(conn, tx, orderId, storeId, ct);
+            var voucherId = await VoucherPersistence.GetVoucherIdForOrderAsync(conn, orderId, ct);
+            if (voucherId is Guid vid)
+            {
+                await VoucherPersistence.IncrementRedemptionCountAsync(conn, tx, vid, ct);
+            }
+
             return orderId;
         }
 

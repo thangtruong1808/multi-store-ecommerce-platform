@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { FiArrowRight, FiLock, FiMail, FiShield } from 'react-icons/fi'
 import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { clearAuthErrors, signIn } from '../features/auth/authSlice'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const signInSchema = z.object({
   email: z.string().trim().email('Please enter a valid email address'),
@@ -16,6 +17,8 @@ type SignInForm = {
 }
 
 function SignInPage() {
+  useDocumentTitle('Sign in')
+
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const { isAuthenticated, actionLoading, error, fieldErrors } = useAppSelector((state) => state.auth)

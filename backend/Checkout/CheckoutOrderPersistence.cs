@@ -1,4 +1,5 @@
 using backend.Auth;
+using backend.Vouchers;
 using Npgsql;
 
 namespace backend.Checkout;
@@ -37,12 +38,15 @@ internal static class CheckoutOrderPersistence
         UserDetails user,
         IReadOnlyList<ValidatedCheckoutLine> lines,
         decimal subtotal,
+        decimal discountTotal,
+        Guid? voucherId,
+        string? voucherCode,
         string? stripeSessionId,
         CancellationToken ct)
     {
         var orderId = Guid.NewGuid();
         var orderNumber = CheckoutStoreAndPricing.FormatOrderNumber();
-        var grand = subtotal;
+        var grand = Math.Max(0m, Math.Round(subtotal - discountTotal, 2, MidpointRounding.AwayFromZero));
 
         await using (var cmd = conn.CreateCommand())
         {
@@ -74,7 +78,7 @@ internal static class CheckoutOrderPersistence
                                   @customer_email,
                                   @customer_full_name,
                                   @subtotal,
-                                  0,
+                                  @discount_total,
                                   0,
                                   0,
                                   @grand_total,
@@ -92,6 +96,7 @@ internal static class CheckoutOrderPersistence
             cmd.Parameters.AddWithValue("customer_email", user.Email);
             cmd.Parameters.AddWithValue("customer_full_name", user.FullName);
             cmd.Parameters.AddWithValue("subtotal", subtotal);
+            cmd.Parameters.AddWithValue("discount_total", discountTotal);
             cmd.Parameters.AddWithValue("grand_total", grand);
             cmd.Parameters.AddWithValue(
                 "stripe_session_id",
@@ -132,6 +137,18 @@ internal static class CheckoutOrderPersistence
             var lineTotal = Math.Round(line.UnitPrice * line.Quantity, 2, MidpointRounding.AwayFromZero);
             cmd.Parameters.AddWithValue("line_total", lineTotal);
             await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        if (voucherId is Guid vid && discountTotal > 0 && !string.IsNullOrWhiteSpace(voucherCode))
+        {
+            await VoucherPersistence.InsertOrderRedemptionAsync(
+                conn,
+                tx,
+                orderId,
+                vid,
+                voucherCode.Trim(),
+                discountTotal,
+                ct);
         }
 
         return orderId;

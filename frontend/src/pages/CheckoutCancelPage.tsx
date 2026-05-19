@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
 
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+
 export default function CheckoutCancelPage() {
+  useDocumentTitle('Checkout cancelled')
+
   return (
     <div className="mx-auto max-w-lg px-4 py-12 md:px-6">
       <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">

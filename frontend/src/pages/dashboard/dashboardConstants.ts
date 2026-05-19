@@ -9,7 +9,7 @@ import {
   FiUsers,
 } from 'react-icons/fi'
 
-import type { BasicRow, DashboardFeatureKey, SidebarItem } from './dashboardTypes'
+import type { DashboardFeatureKey, SidebarItem } from './dashboardTypes'
 
 export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
 
@@ -24,9 +24,6 @@ export const sideBarItems: SidebarItem[] = [
   { key: 'activityLogs', label: 'Activity Logs', icon: FiActivity },
 ]
 
-export const mockData: Record<'vouchers', BasicRow[]> = {
-  vouchers: [
-    { id: '1', primary: 'WELCOME10', secondary: '10% Off', status: 'Active' },
-    { id: '2', primary: 'FREESHIP', secondary: 'Free Delivery', status: 'Active' },
-  ],
+export function dashboardDocumentTitle(feature: DashboardFeatureKey): string {
+  return sideBarItems.find((item) => item.key === feature)?.label ?? 'Dashboard'
 }

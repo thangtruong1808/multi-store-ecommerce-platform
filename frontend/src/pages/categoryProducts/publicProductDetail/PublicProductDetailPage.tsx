@@ -12,6 +12,7 @@ import { PublicProductDetailBreadcrumb } from './PublicProductDetailBreadcrumb'
 import { PublicProductRelatedSection } from './PublicProductRelatedSection'
 import { readJsonResponse, safeDecode, uuidPattern } from './productDetailUtils'
 import type { PublicProductDetail, RelatedProductItem } from './types'
+import { useDocumentTitle } from '../../../hooks/useDocumentTitle'
 
 export function PublicProductDetailPage() {
   const { level1Slug = '', categorySlug = '', productSku = '' } = useParams<{
@@ -204,6 +205,7 @@ export function PublicProductDetailPage() {
   }, [decodedCategorySlug, decodedLevel1, searchKeyword])
 
   const pageTitle = product?.name ?? 'Product'
+  useDocumentTitle(pageTitle)
 
   const detailSearchSuffix =
     searchKeyword.length > 0 ? `?${new URLSearchParams({ q: searchKeyword }).toString()}` : ''

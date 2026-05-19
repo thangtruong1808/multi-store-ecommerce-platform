@@ -8,6 +8,8 @@ import { removeWishlistProduct } from '../features/wishlist/wishlistSlice'
 import { formatAudAmount } from '../components/home/formatAud'
 import { publicProductDetailPath } from './categoryProducts/categoryProductRoutes'
 import type { PublicProductDetail } from './categoryProducts/publicProductDetail/types'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { StorefrontSpinner } from '../components/ui/StorefrontSpinner'
 
 type RowState =
   | { status: 'loading'; id: string }
@@ -15,6 +17,8 @@ type RowState =
   | { status: 'missing'; id: string }
 
 export default function WishlistPage() {
+  useDocumentTitle('Wishlist')
+
   const dispatch = useAppDispatch()
   const ids = useAppSelector((s) => s.wishlist.ids)
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated)
@@ -82,7 +86,8 @@ export default function WishlistPage() {
           {rows.map((row) => {
             if (row.status === 'loading') {
               return (
-                <li key={row.id} className="p-4 text-sm text-slate-500">
+                <li key={row.id} className="flex items-center gap-2 p-4 text-sm text-slate-600" role="status">
+                  <StorefrontSpinner />
                   Loading…
                 </li>
               )

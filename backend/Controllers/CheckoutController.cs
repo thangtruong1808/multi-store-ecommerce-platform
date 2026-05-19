@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using backend.Checkout;
+using backend.Vouchers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -45,6 +46,42 @@ public sealed class CheckoutController : ControllerBase
         await using var conn = await _dataSource.OpenConnectionAsync(cancellationToken);
         var stores = await CheckoutStoreAndPricing.ListEligibleStoresAsync(conn, items, cancellationToken);
         return Ok(new { stores });
+    }
+
+    [HttpPost("quote")]
+    [Authorize]
+    public async Task<IActionResult> Quote([FromBody] CheckoutQuoteRequest request, CancellationToken cancellationToken)
+    {
+        if (request.StoreId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Select a store to fulfil your order." });
+        }
+
+        var items = NormalizeCartItems(request.Items);
+        if (items.Count == 0)
+        {
+            return BadRequest(new { message = "Cart is empty." });
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync(cancellationToken);
+        var lines = await CheckoutStoreAndPricing.TryBuildLinesForStoreAsync(conn, request.StoreId, items, cancellationToken);
+        if (lines is null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The selected store cannot fulfil this cart. Choose another store or update quantities.",
+            });
+        }
+
+        var pricing = await VoucherValidation.BuildCheckoutPricingAsync(
+            conn,
+            request.StoreId,
+            lines,
+            request.VoucherCode,
+            cancellationToken);
+
+        return Ok(MapPricingResponse(pricing, lines));
     }
 
     [HttpPost("session")]
@@ -101,8 +138,33 @@ public sealed class CheckoutController : ControllerBase
             });
         }
 
+        var pricing = await VoucherValidation.BuildCheckoutPricingAsync(
+            conn,
+            request.StoreId,
+            lines,
+            request.VoucherCode,
+            cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(request.VoucherCode) &&
+            (pricing.Voucher is null || !pricing.Voucher.Success))
+        {
+            return BadRequest(new
+            {
+                message = pricing.Voucher?.ErrorMessage ?? "Voucher could not be applied.",
+            });
+        }
+
         var storeId = request.StoreId;
-        var subtotal = CheckoutStoreAndPricing.SumSubtotal(lines);
+        var subtotal = pricing.Subtotal;
+        var discountTotal = pricing.DiscountTotal;
+        var grandTotal = pricing.GrandTotal;
+
+        if (grandTotal <= 0 && subtotal > 0 && discountTotal >= subtotal)
+        {
+            grandTotal = 0.01m;
+            discountTotal = subtotal - grandTotal;
+        }
+
         if (subtotal <= 0)
         {
             return BadRequest(new { message = "Invalid order total." });
@@ -122,8 +184,13 @@ public sealed class CheckoutController : ControllerBase
                 userDetails,
                 lines,
                 subtotal,
+                discountTotal,
+                pricing.Voucher?.VoucherId,
+                pricing.Voucher?.Code,
                 stripeSessionId: null,
                 cancellationToken);
+
+            var stripeLineItems = CheckoutStripeLineItems.Build(lines, grandTotal);
 
             var sessionService = new SessionService();
             var successUrl = $"{publicBase}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}";
@@ -138,20 +205,7 @@ public sealed class CheckoutController : ControllerBase
                 {
                     ["order_id"] = orderId.ToString("D"),
                 },
-                LineItems = lines.Select(static line => new SessionLineItemOptions
-                {
-                    Quantity = line.Quantity,
-                    PriceData = new SessionLineItemPriceDataOptions
-                    {
-                        Currency = "aud",
-                        UnitAmount = ToAudCents(line.UnitPrice),
-                        ProductData = new SessionLineItemPriceDataProductDataOptions
-                        {
-                            Name = line.Name,
-                            Metadata = new Dictionary<string, string> { ["sku"] = line.Sku },
-                        },
-                    },
-                }).ToList(),
+                LineItems = stripeLineItems,
             };
 
             Session session;
@@ -178,15 +232,44 @@ public sealed class CheckoutController : ControllerBase
         }
     }
 
+    private static object MapPricingResponse(CheckoutPricingResult pricing, IReadOnlyList<ValidatedCheckoutLine> lines) =>
+        new
+        {
+            subtotal = pricing.Subtotal,
+            discountTotal = pricing.DiscountTotal,
+            grandTotal = pricing.GrandTotal,
+            voucherCode = pricing.Voucher?.Code,
+            voucherLabel = pricing.Voucher?.Label,
+            voucherError = pricing.Voucher is { Success: false } ? pricing.Voucher.ErrorMessage : null,
+            messages = pricing.Messages,
+            suggestedVouchers = pricing.SuggestedVouchers.Select(static s => new
+            {
+                code = s.Code,
+                label = s.Label,
+                appliesAtSelectedStore = s.AppliesAtSelectedStore,
+            }),
+            crossStoreWarnings = pricing.CrossStoreWarnings.Select(static w => new
+            {
+                code = w.Code,
+                label = w.Label,
+                storeNames = w.StoreNames,
+            }),
+            lines = lines.Select(static l => new
+            {
+                productId = l.ProductId,
+                sku = l.Sku,
+                name = l.Name,
+                unitPrice = l.UnitPrice,
+                quantity = l.Quantity,
+                lineTotal = Math.Round(l.UnitPrice * l.Quantity, 2, MidpointRounding.AwayFromZero),
+            }),
+        };
+
     private static long ToAudCents(decimal aud)
     {
         return (long)Math.Round(aud * 100m, 0, MidpointRounding.AwayFromZero);
     }
 
-    /// <summary>
-    /// Stripe success/cancel URLs must point at the browser origin of the SPA.
-    /// Order: PUBLIC_APP_BASE_URL → first CORS_ALLOWED_ORIGINS entry → http://localhost:5173 in Development only.
-    /// </summary>
     private string? ResolvePublicAppBaseUrl()
     {
         var direct = _configuration["PUBLIC_APP_BASE_URL"]?.Trim().TrimEnd('/');

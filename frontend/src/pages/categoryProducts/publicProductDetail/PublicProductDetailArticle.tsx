@@ -9,6 +9,7 @@ import { toggleWishlistProduct } from '../../../features/wishlist/wishlistSlice'
 import type { PublicProductDetail } from './types'
 import { ProductDescriptionBulletList } from './ProductDescriptionBulletList'
 import { PublicProductDetailGallery } from './PublicProductDetailGallery'
+import { useProductVoucherHints } from './useProductVoucherHints'
 
 type PublicProductDetailArticleProps = {
   product: PublicProductDetail
@@ -20,6 +21,7 @@ export function PublicProductDetailArticle({ product }: PublicProductDetailArtic
   const inWishlist = useAppSelector((s) => s.wishlist.ids.includes(product.id))
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated)
   const [announce, setAnnounce] = useState<string | null>(null)
+  const { hints: voucherHints, isLoading: isVoucherHintsLoading } = useProductVoucherHints(product.id)
 
   const handleAddToCart = () => {
     dispatch(
@@ -84,6 +86,40 @@ export function PublicProductDetailArticle({ product }: PublicProductDetailArtic
               <span className="text-amber-800">Out of stock</span>
             )}
           </p>
+
+          {isVoucherHintsLoading ? (
+            <div
+              className="mt-4 flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/80 px-3 py-2 text-sm text-slate-600"
+              role="status"
+            >
+              <span
+                className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600"
+                aria-hidden="true"
+              />
+              Checking voucher offers…
+            </div>
+          ) : voucherHints.length > 0 ? (
+            <div
+              className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-950"
+              role="status"
+            >
+              <p className="font-medium">Voucher available at other store locations</p>
+              <ul className="mt-2 space-y-2">
+                {voucherHints.map((hint) => (
+                  <li key={hint.code}>
+                    <span className="font-mono font-semibold">{hint.code}</span>
+                    <span className="text-amber-900"> ({hint.label})</span>
+                    <span className="block text-xs text-amber-800">
+                      Valid at: {hint.storeNames.join(', ')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-amber-800">
+                Select one of these stores at checkout to use the voucher.
+              </p>
+            </div>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
             <button

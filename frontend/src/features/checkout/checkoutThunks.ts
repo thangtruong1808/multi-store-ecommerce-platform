@@ -6,9 +6,14 @@ import type { RootState } from '../../app/store'
 
 type SessionResponse = { url?: string }
 
-export const createCheckoutSession = createAsyncThunk<string, string, { rejectValue: string }>(
+type CheckoutSessionArgs = {
+  storeId: string
+  voucherCode?: string
+}
+
+export const createCheckoutSession = createAsyncThunk<string, CheckoutSessionArgs, { rejectValue: string }>(
   'checkout/createSession',
-  async (storeId, { getState, rejectWithValue }) => {
+  async ({ storeId, voucherCode }, { getState, rejectWithValue }) => {
     const state = getState() as RootState
     const items = state.cart.items
     if (items.length === 0) {
@@ -25,6 +30,7 @@ export const createCheckoutSession = createAsyncThunk<string, string, { rejectVa
         productId: i.productId,
         quantity: i.quantity,
       })),
+      voucherCode: voucherCode?.trim() || undefined,
     }
 
     const post = async () =>

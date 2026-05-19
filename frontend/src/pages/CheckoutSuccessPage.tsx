@@ -3,8 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { useAppDispatch } from '../app/hooks'
 import { clearCart } from '../features/cart/cartSlice'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function CheckoutSuccessPage() {
+  useDocumentTitle('Payment successful')
+
   const dispatch = useAppDispatch()
   const [params] = useSearchParams()
   const sessionId = params.get('session_id')

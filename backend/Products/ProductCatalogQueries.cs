@@ -14,6 +14,44 @@ internal static class ProductCatalogQueries
                                                   ORDER BY pi.sort_order ASC
                                                   LIMIT 1)
                                                  """;
+
+    private const string VoucherPromotionLabelSql = """
+                                                    (SELECT
+                                                        CASE
+                                                            WHEN lower(v.discount_type) = 'percent' THEN
+                                                                trim(trailing '.' FROM trim(trailing '0' FROM to_char(v.discount_value, 'FM9990.99')))
+                                                                || '% off'
+                                                            ELSE
+                                                                'A$' || to_char(v.discount_value, 'FM9990.00') || ' off'
+                                                        END
+                                                     FROM app.vouchers v
+                                                     WHERE v.is_active = TRUE
+                                                       AND v.expires_at >= NOW()
+                                                       AND (v.starts_at IS NULL OR v.starts_at <= NOW())
+                                                       AND (v.max_redemptions IS NULL OR v.redemption_count < v.max_redemptions)
+                                                       AND EXISTS (
+                                                           SELECT 1
+                                                           FROM app.voucher_stores vs
+                                                           INNER JOIN app.store_products sp
+                                                               ON sp.store_id = vs.store_id
+                                                              AND sp.product_id = p.id
+                                                              AND sp.is_visible = TRUE
+                                                           WHERE vs.voucher_id = v.id
+                                                       )
+                                                       AND (
+                                                           NOT EXISTS (
+                                                               SELECT 1 FROM app.voucher_products vp0 WHERE vp0.voucher_id = v.id
+                                                           )
+                                                           OR EXISTS (
+                                                               SELECT 1 FROM app.voucher_products vp1
+                                                               WHERE vp1.voucher_id = v.id AND vp1.product_id = p.id
+                                                           )
+                                                       )
+                                                     ORDER BY
+                                                         CASE WHEN lower(v.discount_type) = 'percent' THEN 0 ELSE 1 END,
+                                                         v.discount_value DESC
+                                                     LIMIT 1)
+                                                    """;
     public static async Task<short?> GetCategoryLevelAsync(NpgsqlDataSource dataSource, Guid categoryId)
     {
         await using var conn = await dataSource.OpenConnectionAsync();
@@ -159,6 +197,7 @@ internal static class ProductCatalogQueries
             level1Slug = reader.IsDBNull(5) ? null : reader.GetString(5),
             categorySlug = reader.IsDBNull(6) ? null : reader.GetString(6),
             primaryImageS3Key = reader.IsDBNull(7) ? null : reader.GetString(7),
+            voucherPromotionLabel = reader.IsDBNull(8) ? null : reader.GetString(8),
         };
     }
 
@@ -190,7 +229,8 @@ internal static class ProductCatalogQueries
                                 WHERE x.level = 1
                                 LIMIT 1) AS level1_slug,
                                leaf.slug AS category_slug,
-                               {PrimaryImageSelectSql} AS primary_image_s3_key
+                               {PrimaryImageSelectSql} AS primary_image_s3_key,
+                               {VoucherPromotionLabelSql} AS voucher_promotion_label
                            FROM app.products p
                                     LEFT JOIN app.categories c ON c.id = p.category_id
                                     LEFT JOIN app.categories leaf ON leaf.id = p.category_id
@@ -245,7 +285,8 @@ internal static class ProductCatalogQueries
                                   WHERE x.level = 1
                                   LIMIT 1) AS level1_slug,
                                  leaf.slug AS category_slug,
-                                 {PrimaryImageSelectSql} AS primary_image_s3_key
+                                 {PrimaryImageSelectSql} AS primary_image_s3_key,
+                                 {VoucherPromotionLabelSql} AS voucher_promotion_label
                           FROM app.products p
                                    LEFT JOIN app.categories c ON c.id = p.category_id
                                    LEFT JOIN app.categories leaf ON leaf.id = p.category_id

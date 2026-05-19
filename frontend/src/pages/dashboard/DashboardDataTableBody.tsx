@@ -16,6 +16,8 @@ import type {
   StoresResponse,
   UserItem,
   UsersResponse,
+  VoucherItem,
+  VouchersResponse,
 } from './dashboardTypes'
 
 type DashboardDataTableBodyProps = {
@@ -34,6 +36,8 @@ type DashboardDataTableBodyProps = {
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
   invoicesState: InvoicesResponse
+  vouchersState: VouchersResponse
+  isVouchersLoading: boolean
   nonUserItems: BasicRow[]
   isDeleteLoading: boolean
   deletingUserId: string | null
@@ -52,6 +56,10 @@ type DashboardDataTableBodyProps = {
   isStoreDeleting: boolean
   deletingStoreId: string | null
   canMutateStores: boolean
+  openEditVoucher: (voucher: VoucherItem) => void
+  setConfirmDeleteVoucher: (voucher: VoucherItem | null) => void
+  isVoucherDeleting: boolean
+  deletingVoucherId: string | null
 }
 
 export function DashboardDataTableBody({
@@ -70,6 +78,8 @@ export function DashboardDataTableBody({
   productsState,
   activityLogsState,
   invoicesState,
+  vouchersState,
+  isVouchersLoading,
   nonUserItems,
   isDeleteLoading,
   deletingUserId,
@@ -88,6 +98,10 @@ export function DashboardDataTableBody({
   isStoreDeleting,
   deletingStoreId,
   canMutateStores,
+  openEditVoucher,
+  setConfirmDeleteVoucher,
+  isVoucherDeleting,
+  deletingVoucherId,
 }: DashboardDataTableBodyProps) {
   return (
     <tbody className="divide-y divide-slate-100 bg-white">
@@ -95,6 +109,7 @@ export function DashboardDataTableBody({
       (activeFeature === 'stores' && isStoresLoading) ||
       (activeFeature === 'categories' && isCategoriesLoading) ||
       (activeFeature === 'products' && isProductsLoading) ||
+      (activeFeature === 'vouchers' && isVouchersLoading) ||
       (activeFeature === 'activityLogs' && isActivityLogsLoading) ||
       (activeFeature === 'invoices' && isInvoicesLoading) ||
       isFeatureLoading ? (
@@ -110,11 +125,13 @@ export function DashboardDataTableBody({
                     ? 'Loading categories...'
                     : activeFeature === 'products'
                       ? 'Loading products...'
-                      : activeFeature === 'activityLogs'
-                        ? 'Loading activity logs...'
-                        : activeFeature === 'invoices'
-                          ? 'Loading invoices...'
-                          : 'Loading data...'}
+                      : activeFeature === 'vouchers'
+                        ? 'Loading vouchers...'
+                        : activeFeature === 'activityLogs'
+                          ? 'Loading activity logs...'
+                          : activeFeature === 'invoices'
+                            ? 'Loading invoices...'
+                            : 'Loading data...'}
             </div>
           </td>
         </tr>
@@ -309,6 +326,66 @@ export function DashboardDataTableBody({
             </td>
           </tr>
         ))
+      ) : activeFeature === 'vouchers' ? (
+        vouchersState.items.map((voucher) => {
+          const statusClass =
+            voucher.status === 'Active'
+              ? 'bg-emerald-100 text-emerald-700'
+              : voucher.status === 'Scheduled'
+                ? 'bg-sky-100 text-sky-700'
+                : voucher.status === 'Expired' || voucher.status === 'Exhausted'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-slate-200 text-slate-700'
+
+          return (
+            <tr key={voucher.id} className="align-middle">
+              <td className="px-3 py-2.5">
+                <p className="font-mono font-medium text-slate-800">{voucher.code}</p>
+                {voucher.description ? (
+                  <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{voucher.description}</p>
+                ) : null}
+              </td>
+              <td className="px-3 py-2.5 text-slate-700">{voucher.discountLabel}</td>
+              <td className="px-3 py-2.5 text-slate-700">
+                <p className="text-sm">{voucher.storeCount} store(s)</p>
+                <p className="text-xs text-slate-500 line-clamp-2">{voucher.storeNames || '—'}</p>
+              </td>
+              <td className="px-3 py-2.5 text-slate-700">
+                {new Date(voucher.expiresAt).toLocaleDateString()}
+              </td>
+              <td className="px-3 py-2.5">
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+                  {voucher.status}
+                </span>
+              </td>
+              <td className="px-3 py-2.5">
+                <div className="inline-flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void openEditVoucher(voucher)}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <FiEdit2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteVoucher(voucher)}
+                    disabled={isVoucherDeleting && deletingVoucherId === voucher.id}
+                    className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-70"
+                  >
+                    {isVoucherDeleting && deletingVoucherId === voucher.id ? (
+                      <DashboardSpinner className="h-3 w-3" />
+                    ) : (
+                      <FiTrash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                    Deactivate
+                  </button>
+                </div>
+              </td>
+            </tr>
+          )
+        })
       ) : activeFeature === 'invoices' ? (
         invoicesState.items.map((invoice) => {
           const amountLabel =
@@ -375,6 +452,7 @@ export function DashboardDataTableBody({
         !isStoresLoading &&
         !isCategoriesLoading &&
         !isProductsLoading &&
+        !isVouchersLoading &&
         !isActivityLogsLoading &&
         !isInvoicesLoading &&
         !isFeatureLoading &&

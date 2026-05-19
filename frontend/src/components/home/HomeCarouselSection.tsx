@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { FiAlertCircle, FiInbox } from 'react-icons/fi'
+import { StorefrontSpinner } from '../ui/StorefrontSpinner'
 import { HomeCarousel } from './HomeCarousel'
 import { HOME_CAROUSEL_SLIDE_CLASS } from './homeCarouselSlideClasses'
 
@@ -38,6 +39,7 @@ export function HomeCarouselSection({
     <section
       className="min-w-0 w-full max-w-full rounded-2xl border border-slate-200/70 bg-white/75 p-4 shadow-sm ring-1 ring-slate-900/[0.04] backdrop-blur-sm sm:p-5 md:p-6"
       aria-labelledby={sectionId}
+      aria-busy={isLoading}
     >
       <div className="min-w-0 space-y-5">
         <header className="space-y-2 border-b border-slate-100 pb-4">
@@ -48,6 +50,7 @@ export function HomeCarouselSection({
                   className="hidden h-8 w-1 shrink-0 rounded-full bg-gradient-to-b from-sky-500 to-indigo-500 sm:block"
                   aria-hidden="true"
                 />
+                {isLoading ? <StorefrontSpinner className="h-4 w-4" /> : null}
                 <h2
                   id={sectionId}
                   className="min-w-0 break-words text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl"
@@ -75,7 +78,12 @@ export function HomeCarouselSection({
         ) : null}
 
         {!error && isLoading ? (
-          <div className="flex min-w-0 w-full max-w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-10 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-4 sm:px-8 [&::-webkit-scrollbar]:hidden">
+          <div
+            className="flex min-w-0 w-full max-w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-10 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-4 sm:px-8 [&::-webkit-scrollbar]:hidden"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="sr-only">Loading {title}</span>
             {skeleton}
           </div>
         ) : null}

@@ -9,6 +9,8 @@ import { DashboardStoreFilters } from './DashboardStoreFilters'
 import { DashboardStoreModals } from './DashboardStoreModals'
 import { DashboardToolbar } from './DashboardToolbar'
 import { DashboardUserModals } from './DashboardUserModals'
+import { DashboardVoucherFilters } from './DashboardVoucherFilters'
+import { DashboardVoucherModals } from './DashboardVoucherModals'
 import type { DashboardModel } from './hooks/useDashboardModel'
 
 type DashboardWorkspaceProps = {
@@ -23,6 +25,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
   const s = model.stores
   const inv = model.invoices
   const ov = model.overview
+  const v = model.vouchers
 
   return (
     <section className="min-w-0 p-3 sm:p-4 lg:p-6">
@@ -158,6 +161,44 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         />
       )}
 
+      {activeFeature === 'vouchers' && (
+        <DashboardVoucherModals
+          isVoucherFormOpen={v.isVoucherFormOpen}
+          setIsVoucherFormOpen={v.setIsVoucherFormOpen}
+          editingVoucher={v.editingVoucher}
+          voucherForm={v.voucherForm}
+          setVoucherForm={v.setVoucherForm}
+          managedStores={v.managedStores}
+          productPickerItems={v.productPickerItems}
+          isProductPickerLoading={v.isProductPickerLoading}
+          productPickerSearch={v.productPickerSearch}
+          setProductPickerSearch={v.setProductPickerSearch}
+          hasVoucherChanges={model.hasVoucherChanges}
+          isVoucherSaving={v.isVoucherSaving}
+          onSaveVoucher={() => void v.handleSaveVoucher()}
+          toggleStoreId={v.toggleStoreId}
+          toggleProductId={v.toggleProductId}
+          confirmDeleteVoucher={v.confirmDeleteVoucher}
+          setConfirmDeleteVoucher={v.setConfirmDeleteVoucher}
+          isVoucherDeleting={v.isVoucherDeleting}
+          onDeleteVoucher={() => void v.handleDeleteVoucher()}
+        />
+      )}
+
+      {activeFeature === 'vouchers' && (
+        <DashboardVoucherFilters
+          voucherSearchInput={v.voucherSearchInput}
+          setVoucherSearchInput={v.setVoucherSearchInput}
+          onApplyVoucherSearch={() => v.setVoucherSearchText(v.voucherSearchInput)}
+          voucherFilterStatus={v.voucherFilterStatus}
+          setVoucherFilterStatus={v.setVoucherFilterStatus}
+          voucherFilterStoreId={v.voucherFilterStoreId}
+          setVoucherFilterStoreId={v.setVoucherFilterStoreId}
+          managedStores={model.managedStores}
+          onOpenCreateVoucher={v.openCreateVoucher}
+        />
+      )}
+
       {activeFeature === 'products' && (
         <DashboardProductFilters
           productFilterStatus={p.productFilterStatus}
@@ -201,6 +242,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         isProductsLoading={p.isProductsLoading}
         isActivityLogsLoading={u.isActivityLogsLoading}
         isInvoicesLoading={inv.isInvoicesLoading}
+        isVouchersLoading={v.isVouchersLoading}
         isFeatureLoading={model.isFeatureLoading}
         usersState={u.usersState}
         storesState={s.storesState}
@@ -208,6 +250,7 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         productsState={p.productsState}
         activityLogsState={u.activityLogsState}
         invoicesState={inv.invoicesState}
+        vouchersState={v.vouchersState}
         nonUserItems={model.nonUserItems}
         isDeleteLoading={u.isDeleteLoading}
         deletingUserId={u.deletingUserId}
@@ -226,6 +269,10 @@ export function DashboardWorkspace({ model }: DashboardWorkspaceProps) {
         isStoreDeleting={s.isStoreDeleting}
         deletingStoreId={s.deletingStoreId}
         canMutateStores={s.isAdmin}
+        openEditVoucher={(voucher) => void v.openEditVoucher(voucher)}
+        setConfirmDeleteVoucher={v.setConfirmDeleteVoucher}
+        isVoucherDeleting={v.isVoucherDeleting}
+        deletingVoucherId={v.deletingVoucherId}
       />
       )}
     </section>

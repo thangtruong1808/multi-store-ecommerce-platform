@@ -17,6 +17,8 @@ import type {
   StoresResponse,
   UserItem,
   UsersResponse,
+  VoucherItem,
+  VouchersResponse,
 } from './dashboardTypes'
 
 type DashboardDataTableProps = {
@@ -41,6 +43,8 @@ type DashboardDataTableProps = {
   productsState: ProductsResponse
   activityLogsState: ActivityLogsResponse
   invoicesState: InvoicesResponse
+  vouchersState: VouchersResponse
+  isVouchersLoading: boolean
   nonUserItems: BasicRow[]
   isDeleteLoading: boolean
   deletingUserId: string | null
@@ -59,6 +63,10 @@ type DashboardDataTableProps = {
   isStoreDeleting: boolean
   deletingStoreId: string | null
   canMutateStores: boolean
+  openEditVoucher: (voucher: VoucherItem) => void
+  setConfirmDeleteVoucher: (voucher: VoucherItem | null) => void
+  isVoucherDeleting: boolean
+  deletingVoucherId: string | null
 }
 
 export function DashboardDataTable({
@@ -83,6 +91,8 @@ export function DashboardDataTable({
   productsState,
   activityLogsState,
   invoicesState,
+  vouchersState,
+  isVouchersLoading,
   nonUserItems,
   isDeleteLoading,
   deletingUserId,
@@ -101,6 +111,10 @@ export function DashboardDataTable({
   isStoreDeleting,
   deletingStoreId,
   canMutateStores,
+  openEditVoucher,
+  setConfirmDeleteVoucher,
+  isVoucherDeleting,
+  deletingVoucherId,
 }: DashboardDataTableProps) {
   const safePage = Math.min(page, totalPages)
 
@@ -125,6 +139,7 @@ export function DashboardDataTable({
             isProductsLoading={isProductsLoading}
             isActivityLogsLoading={isActivityLogsLoading}
             isInvoicesLoading={isInvoicesLoading}
+            isVouchersLoading={isVouchersLoading}
             isFeatureLoading={isFeatureLoading}
             usersState={usersState}
             storesState={storesState}
@@ -132,6 +147,7 @@ export function DashboardDataTable({
             productsState={productsState}
             activityLogsState={activityLogsState}
             invoicesState={invoicesState}
+            vouchersState={vouchersState}
             nonUserItems={nonUserItems}
             isDeleteLoading={isDeleteLoading}
             deletingUserId={deletingUserId}
@@ -150,6 +166,10 @@ export function DashboardDataTable({
             isStoreDeleting={isStoreDeleting}
             deletingStoreId={deletingStoreId}
             canMutateStores={canMutateStores}
+            openEditVoucher={openEditVoucher}
+            setConfirmDeleteVoucher={setConfirmDeleteVoucher}
+            isVoucherDeleting={isVoucherDeleting}
+            deletingVoucherId={deletingVoucherId}
           />
         </table>
       </div>

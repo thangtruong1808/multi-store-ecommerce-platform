@@ -12,6 +12,7 @@ export type HomeProductCardModel = {
   level1Slug?: string | null
   categorySlug?: string | null
   primaryImageS3Key?: string | null
+  voucherPromotionLabel?: string | null
 }
 
 type HomeProductCardProps = {
@@ -23,10 +24,19 @@ export function HomeProductCard({ product }: HomeProductCardProps) {
   const cat = product.categorySlug?.trim()
   const hasPath = Boolean(l1 && cat)
   const to = hasPath ? publicProductDetailPath(l1!, cat!, product.sku) : '#'
+  const promoLabel = product.voucherPromotionLabel?.trim() ?? ''
 
   const cardBody = (
     <>
       <div className="relative aspect-[5/3] w-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+        {promoLabel ? (
+          <span
+            className="absolute left-2 top-2 z-[2] max-w-[calc(100%-0.5rem)] truncate rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+            title={promoLabel}
+          >
+            {promoLabel}
+          </span>
+        ) : null}
         <div className="absolute inset-0 z-[1] bg-gradient-to-t from-slate-900/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
         <StorefrontProductPhoto
           imageS3Key={product.primaryImageS3Key}

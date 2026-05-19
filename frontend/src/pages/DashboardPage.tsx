@@ -3,9 +3,12 @@ import { Navigate } from 'react-router-dom'
 import { DashboardSidebar } from './dashboard/DashboardSidebar'
 import { DashboardWorkspace } from './dashboard/DashboardWorkspace'
 import { useDashboardModel } from './dashboard/hooks/useDashboardModel'
+import { dashboardDocumentTitle } from './dashboard/dashboardConstants'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 function DashboardPage() {
   const model = useDashboardModel()
+  useDocumentTitle(dashboardDocumentTitle(model.activeFeature))
 
   if (!model.isAuthenticated) {
     return <Navigate to="/signin" replace />

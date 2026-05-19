@@ -4,7 +4,13 @@ public sealed record CheckoutSessionLineRequest(Guid ProductId, int Quantity);
 
 public sealed record CreateCheckoutSessionRequest(
     IReadOnlyList<CheckoutSessionLineRequest> Items,
-    Guid StoreId);
+    Guid StoreId,
+    string? VoucherCode = null);
+
+public sealed record CheckoutQuoteRequest(
+    IReadOnlyList<CheckoutSessionLineRequest> Items,
+    Guid StoreId,
+    string? VoucherCode = null);
 
 public sealed record EligibleStoresRequest(IReadOnlyList<CheckoutSessionLineRequest> Items);
 

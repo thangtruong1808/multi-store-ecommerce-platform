@@ -1,4 +1,5 @@
 using backend.Products;
+using backend.Vouchers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -260,6 +261,37 @@ public partial class ProductsController
             imageS3Keys,
             videoUrls,
             availableQuantity
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("public/{id:guid}/voucher-hints")]
+    public async Task<IActionResult> GetPublicProductVoucherHints([FromRoute] Guid id, CancellationToken cancellationToken)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var existsCmd = conn.CreateCommand();
+        existsCmd.CommandText = """
+                               SELECT 1 FROM app.products
+                               WHERE id = @id AND lower(status) = 'active'
+                               LIMIT 1;
+                               """;
+        existsCmd.Parameters.AddWithValue("id", id);
+        var exists = await existsCmd.ExecuteScalarAsync(cancellationToken);
+        if (exists is null or DBNull)
+        {
+            return NotFound(new { message = "Product not found." });
+        }
+
+        var hints = await VoucherValidation.GetProductVoucherHintsAsync(conn, id, cancellationToken);
+        return Ok(new
+        {
+            hints = hints.Select(static h => new
+            {
+                code = h.Code,
+                label = h.Label,
+                storeIds = h.StoreIds,
+                storeNames = h.StoreNames,
+            }),
         });
     }
 

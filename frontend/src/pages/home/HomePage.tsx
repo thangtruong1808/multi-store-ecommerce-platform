@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HomePageFooter } from '../../components/footer/HomePageFooter'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { HomeCarouselSection, HomeCarouselSkeletonRow } from '../../components/home/HomeCarouselSection'
 import { HomeCategoryCard } from '../../components/home/HomeCategoryCard'
 import { HomeProductCard, type HomeProductCardModel } from '../../components/home/HomeProductCard'
@@ -42,6 +43,8 @@ async function fetchApiJson<T>(path: string): Promise<T> {
 }
 
 export default function HomePage() {
+  useDocumentTitle('Home')
+
   const [level1Categories, setLevel1Categories] = useState<PublicCategoryRow[]>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [errorCategories, setErrorCategories] = useState<string | null>(null)
