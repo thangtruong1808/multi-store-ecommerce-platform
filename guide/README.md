@@ -4,6 +4,8 @@ This is the **main entry point** for understanding and deploying the project lik
 
 No application UI or feature code lives in this folder — only operations guides and pointers to repo config files.
 
+> **GitHub visibility:** `docker-compose.yml`, `docker-compose.env.example`, and `infra/terraform/` **should** be on GitHub (no secrets inside). Only `.env` and `terraform.tfvars` stay local. See [what-is-safe-on-github.md](./what-is-safe-on-github.md).
+
 ---
 
 ## Big picture
@@ -382,13 +384,16 @@ Files you will touch during setup (secrets never committed):
 
 | Phase | File | Commit to Git? |
 |-------|------|----------------|
-| Local | Root `.env` | No (gitignored) |
-| Local | `backend/.env`, `frontend/.env` | No |
-| Terraform | `infra/terraform/environments/*/terraform.tfvars` | No |
-| Terraform | `infra/terraform/environments/*/backend.hcl` | No |
-| Terraform | `*.tfvars.example`, `*.hcl.example` | Yes (templates) |
-| CI/CD | `.github/workflows/*.yml` | Yes (already in repo) |
-| App | `docker-compose.yml`, Dockerfiles | Yes (already in repo) |
+| Local | Root `.env` | **No** (gitignored) |
+| Local | `backend/.env`, `frontend/.env` | **No** |
+| Terraform | `infra/terraform/environments/*/terraform.tfvars` | **No** |
+| Terraform | `infra/terraform/environments/*/backend.hcl` | **No** |
+| Terraform | `infra/terraform/` (`.tf`, `*.example`) | **Yes** — IaC, no secrets |
+| CI/CD | `.github/workflows/*.yml` | **Yes** |
+| Local stack | `docker-compose.yml`, `docker-compose.env.example` | **Yes** — templates at repo root |
+| Docs | `guide/*.md` | **Yes** |
+
+Details: [what-is-safe-on-github.md](./what-is-safe-on-github.md).
 
 **Your existing blob:** values flow from `backend/.env` → root `.env` → Terraform `terraform.tfvars` → GitHub `VITE_PRODUCT_MEDIA_BASE_URL`.
 
@@ -409,10 +414,11 @@ Files you will touch during setup (secrets never committed):
 | 6 | [azure-monitor-log-analytics.md](./azure-monitor-log-analytics.md) | Logs and alerts |
 | 7 | [azure-automation-start-stop.md](./azure-automation-start-stop.md) | Cost saving schedules |
 
-### Already configured / feature-specific
+### Reference
 
 | Guide | Topic |
 |--------|--------|
+| [what-is-safe-on-github.md](./what-is-safe-on-github.md) | **Why** docker-compose & Terraform are on GitHub |
 | [azure-product-photos-setup.md](./azure-product-photos-setup.md) | **Your existing blob** — reference |
 | [azure-communication-services-email-setup.md](./azure-communication-services-email-setup.md) | Email (password reset, contact) |
 

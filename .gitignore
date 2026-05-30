@@ -4,25 +4,37 @@ frontend/dist/
 backend/bin/
 backend/obj/
 
-# Secrets — never commit (root Docker Compose, local overrides)
+# -----------------------------------------------------------------------------
+# Secrets — NEVER commit (values with passwords, API keys, connection strings)
+# -----------------------------------------------------------------------------
 .env
 .env.local
 .env.*.local
-!docker-compose.env.example
 
 frontend/.env
 backend/.env
-/database/
-BRANCH_PRODUCTION_GUIDE.local.md
-guide/**/*.local.md
-guide/local/
-guide/
 
-# Terraform
+# Terraform / Docker secret files (templates *.example ARE committed)
 infra/terraform/**/.terraform/
 infra/terraform/**/*.tfstate
 infra/terraform/**/*.tfstate.*
 infra/terraform/**/terraform.tfvars
 infra/terraform/**/backend.hcl
-!infra/terraform/**/terraform.tfvars.example
-!infra/terraform/**/backend.hcl.example
+
+# -----------------------------------------------------------------------------
+# Local-only data (not needed on GitHub)
+# -----------------------------------------------------------------------------
+/database/
+BRANCH_PRODUCTION_GUIDE.local.md
+guide/**/*.local.md
+guide/local/
+
+# -----------------------------------------------------------------------------
+# COMMITTED ON PURPOSE (do not add to .gitignore):
+#   docker-compose.yml          — local stack; no secrets (uses root .env)
+#   docker-compose.env.example  — empty template only
+#   infra/terraform/            — IaC code; secrets go in gitignored terraform.tfvars
+#   .github/workflows/          — CI/CD
+#   guide/                      — documentation
+# See guide/README.md § "What is safe on GitHub"
+# -----------------------------------------------------------------------------
