@@ -1,4 +1,5 @@
 resource "azurerm_user_assigned_identity" "api" {
+  count               = var.use_acr ? 1 : 0
   name                = "${var.name}-identity"
   location            = var.location
   resource_group_name = var.resource_group_name
@@ -6,9 +7,10 @@ resource "azurerm_user_assigned_identity" "api" {
 }
 
 resource "azurerm_role_assignment" "acr_pull" {
+  count                = var.use_acr ? 1 : 0
   scope                = var.acr_id
   role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.api.principal_id
+  principal_id         = azurerm_user_assigned_identity.api[0].principal_id
 }
 
 resource "azurerm_container_app" "api" {
@@ -17,14 +19,20 @@ resource "azurerm_container_app" "api" {
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
 
-  identity {
-    type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.api.id]
+  dynamic "identity" {
+    for_each = var.use_acr ? [1] : []
+    content {
+      type         = "UserAssigned"
+      identity_ids = [azurerm_user_assigned_identity.api[0].id]
+    }
   }
 
-  registry {
-    server   = var.acr_login_server
-    identity = azurerm_user_assigned_identity.api.id
+  dynamic "registry" {
+    for_each = var.use_acr ? [1] : []
+    content {
+      server   = var.acr_login_server
+      identity = azurerm_user_assigned_identity.api[0].id
+    }
   }
 
   dynamic "secret" {
@@ -59,7 +67,7 @@ resource "azurerm_container_app" "api" {
         port      = 8080
         path      = "/api/health"
 
-        initial_delay           = 30
+        initial_delay           = var.liveness_probe_initial_delay
         interval_seconds        = 15
         timeout                 = 5
         failure_count_threshold = 3
@@ -70,9 +78,10 @@ resource "azurerm_container_app" "api" {
         port      = 8080
         path      = "/api/health"
 
+        initial_delay           = var.readiness_probe_initial_delay
         interval_seconds        = 10
         timeout                 = 5
-        failure_count_threshold = 3
+        failure_count_threshold = 5
         success_count_threshold = 1
       }
     }

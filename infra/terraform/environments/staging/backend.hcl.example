@@ -1,4 +1,4 @@
-resource_group_name  = "rg-multistore-shared"
+resource_group_name  = "multi-store-ecommerce-rg"
 storage_account_name = "tfstatemultistore"
 container_name       = "tfstate"
 key                  = "staging.terraform.tfstate"

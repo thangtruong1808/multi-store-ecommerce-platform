@@ -18,7 +18,7 @@ variable "file_share_name" {
 
 variable "file_share_quota_gb" {
   type    = number
-  default = 50
+  default = 10
 }
 
 variable "create_blob_container" {

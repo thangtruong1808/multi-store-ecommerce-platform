@@ -1,30 +1,46 @@
 # Copy to terraform.tfvars — do not commit terraform.tfvars (gitignored).
+#
+# Showcase cost profile: GHCR images, scale-to-zero, weekday 10:00–17:00 (AUS Central).
 
-location                      = "australiaeast"
-resource_group_name           = "rg-multistore-staging"
+location                      = "australiacentral"
+resource_group_name           = "multi-store-ecommerce-rg"
+use_existing_resource_group   = true
 storage_account_name          = "stmultistorestgCHANGE_ME"
-acr_name                      = "multistoreacrCHANGE_ME"
-acr_resource_group_name       = "rg-multistore-shared"
-image_tag                     = "staging"
 
-postgres_password             = "change-me-strong-password"
+# GHCR (no ACR) — matches .github/workflows/deploy-staging.yml
+use_acr    = false
+ghcr_owner = "thangtruong1808"
+image_tag  = "staging"
+
+# Optional: skip shared/ apply entirely when use_acr = false
+# acr_name = ""
+
+# Scale-to-zero + weekday schedule (Automation account, Free tier)
+aca_min_replicas            = 0
+aca_max_replicas            = 1
+enable_aca_weekday_schedule = true
+aca_schedule_start          = "10:00:00"
+aca_schedule_stop           = "17:00:00"
+aca_schedule_timezone       = "AUS Central Standard Time"
+postgres_file_share_quota_gb = 10
+
+postgres_password = "change-me-strong-password"
 
 # Set after first terraform apply using output web_url, or use placeholder and update after deploy
-cors_allowed_origins          = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
-public_app_base_url           = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
+cors_allowed_origins = "https://web-xxxxx.australiacentral.azurecontainerapps.io"
+public_app_base_url  = "https://web-xxxxx.australiacentral.azurecontainerapps.io"
 
-jwt_secret                    = "change-me-use-a-long-random-secret-at-least-32-chars"
+jwt_secret = "change-me-use-a-long-random-secret-at-least-32-chars"
 
-stripe_secret_key             = "sk_test_..."
-stripe_webhook_secret         = "whsec_..."
-stripe_publishable_key        = "pk_test_..."
+stripe_secret_key      = "sk_test_..."
+stripe_webhook_secret  = "whsec_..."
+stripe_publishable_key = "pk_test_..."
 
-azure_storage_enabled         = true
+azure_storage_enabled           = true
 azure_storage_connection_string = "DefaultEndpointsProtocol=https;AccountName=..."
-azure_storage_public_base_url = "https://YOUR_ACCOUNT.blob.core.windows.net/product-photos"
+azure_storage_public_base_url   = "https://YOUR_ACCOUNT.blob.core.windows.net/product-photos"
 
-# Reuse your existing product-photos container (do not create a second one):
-# create_blob_container = false
+create_blob_container = false
 
-acs_email_enabled             = false
-contact_form_to_email         = "you@example.com"
+acs_email_enabled     = false
+contact_form_to_email = "you@example.com"

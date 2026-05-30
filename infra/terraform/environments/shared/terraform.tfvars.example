@@ -1,6 +1,13 @@
-# Copy to terraform.tfvars and set acr_name to a globally unique value.
-# Example: acr_name = "multistoreacr12345"
+# Copy to terraform.tfvars — do not commit terraform.tfvars (gitignored).
+#
+# Showcase / cost-optimized profile: skip ACR and use GHCR in GitHub Actions.
+# You can skip `terraform apply` in shared/ entirely when create_acr = false.
 
-location             = "australiaeast"
-resource_group_name  = "rg-multistore-shared"
-acr_name             = "multistoreacrCHANGE_ME"
+location                    = "australiacentral"
+resource_group_name         = "multi-store-ecommerce-rg"
+use_existing_resource_group = true
+
+create_acr = false
+
+# Only when create_acr = true:
+# acr_name = "multistoreacrCHANGE_ME"

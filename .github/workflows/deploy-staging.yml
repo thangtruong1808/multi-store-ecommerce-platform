@@ -11,10 +11,11 @@ concurrency:
 permissions:
   id-token: write
   contents: read
+  packages: write
 
 jobs:
   deploy:
-    name: Build, push, and update staging
+    name: Build, push to GHCR, and update staging
     runs-on: ubuntu-latest
     environment: staging
     env:
@@ -23,6 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set GHCR image names
+        run: |
+          OWNER="${{ vars.GHCR_OWNER }}"
+          if [ -z "$OWNER" ]; then OWNER="${{ github.repository_owner }}"; fi
+          echo "GHCR_OWNER=$OWNER" >> "$GITHUB_ENV"
+          echo "API_IMAGE=ghcr.io/${OWNER}/multi-store-api" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE=ghcr.io/${OWNER}/multi-store-web" >> "$GITHUB_ENV"
+
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
@@ -30,19 +39,21 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Login to ACR
-        run: az acr login --name ${{ vars.ACR_NAME }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push API image
         run: |
-          API_IMAGE=${{ vars.ACR_LOGIN_SERVER }}/multi-store-api
           docker build -t ${API_IMAGE}:${IMAGE_TAG} -t ${API_IMAGE}:${SHA_TAG} ./backend
           docker push ${API_IMAGE}:${IMAGE_TAG}
           docker push ${API_IMAGE}:${SHA_TAG}
 
       - name: Build and push web image
         run: |
-          WEB_IMAGE=${{ vars.ACR_LOGIN_SERVER }}/multi-store-web
           docker build -t ${WEB_IMAGE}:${IMAGE_TAG} -t ${WEB_IMAGE}:${SHA_TAG} \
             --build-arg VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }} \
             --build-arg VITE_PRODUCT_MEDIA_BASE_URL=${{ vars.VITE_PRODUCT_MEDIA_BASE_URL }} \
@@ -56,15 +67,35 @@ jobs:
           az containerapp update \
             --name api \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --image ${{ vars.ACR_LOGIN_SERVER }}/multi-store-api:${IMAGE_TAG}
+            --image ${API_IMAGE}:${IMAGE_TAG}
 
       - name: Update web container app
         run: |
           az containerapp update \
             --name web \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --image ${{ vars.ACR_LOGIN_SERVER }}/multi-store-web:${IMAGE_TAG}
+            --image ${WEB_IMAGE}:${IMAGE_TAG}
+
+      - name: Scale up apps after deploy (cold-start / showcase hours)
+        run: |
+          for app in postgres api web; do
+            az containerapp update \
+              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+              --name "$app" \
+              --min-replicas 1
+          done
+          echo "Waiting for Postgres and API warm-up..."
+          sleep 90
 
       - name: Smoke test API health
         run: |
-          curl -fsS "${{ vars.API_URL }}/api/health" | grep -q '"status":"ok"'
+          for attempt in $(seq 1 18); do
+            if curl -fsS "${{ vars.API_URL }}/api/health" | grep -q '"status":"ok"'; then
+              echo "Health OK on attempt ${attempt}"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/18 — retrying in 10s..."
+            sleep 10
+          done
+          echo "API health check failed after deploy"
+          exit 1

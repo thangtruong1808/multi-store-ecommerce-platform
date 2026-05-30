@@ -3,13 +3,18 @@ output "resource_group_name" {
 }
 
 output "acr_name" {
-  value = module.acr.name
+  value       = var.create_acr ? module.acr[0].name : null
+  description = "Null when create_acr = false (GHCR showcase profile)."
 }
 
 output "acr_login_server" {
-  value = module.acr.login_server
+  value = var.create_acr ? module.acr[0].login_server : null
 }
 
 output "acr_id" {
-  value = module.acr.id
+  value = var.create_acr ? module.acr[0].id : null
+}
+
+output "create_acr" {
+  value = var.create_acr
 }

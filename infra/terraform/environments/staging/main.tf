@@ -1,4 +1,7 @@
+data "azurerm_client_config" "current" {}
+
 data "azurerm_container_registry" "shared" {
+  count               = var.use_acr ? 1 : 0
   name                = var.acr_name
   resource_group_name = var.acr_resource_group_name
 }
@@ -8,8 +11,14 @@ locals {
     environment = var.environment
   })
 
-  api_image = "${data.azurerm_container_registry.shared.login_server}/multi-store-api:${var.image_tag}"
-  web_image = "${data.azurerm_container_registry.shared.login_server}/multi-store-web:${var.image_tag}"
+  ghcr_api_image = var.api_image_override != "" ? var.api_image_override : "ghcr.io/${var.ghcr_owner}/multi-store-api:${var.image_tag}"
+  ghcr_web_image = var.web_image_override != "" ? var.web_image_override : "ghcr.io/${var.ghcr_owner}/multi-store-web:${var.image_tag}"
+
+  api_image = var.use_acr ? "${data.azurerm_container_registry.shared[0].login_server}/multi-store-api:${var.image_tag}" : local.ghcr_api_image
+  web_image = var.use_acr ? "${data.azurerm_container_registry.shared[0].login_server}/multi-store-web:${var.image_tag}" : local.ghcr_web_image
+
+  acr_id           = var.use_acr ? data.azurerm_container_registry.shared[0].id : ""
+  acr_login_server = var.use_acr ? data.azurerm_container_registry.shared[0].login_server : ""
 
   connection_string = "Host=postgres;Port=5432;Database=${var.postgres_db};Username=${var.postgres_user};Password=${var.postgres_password}"
 
@@ -54,9 +63,10 @@ locals {
 module "resource_group" {
   source = "../../modules/resource_group"
 
-  name     = var.resource_group_name
-  location = var.location
-  tags     = local.tags
+  name         = var.resource_group_name
+  location     = var.location
+  use_existing = var.use_existing_resource_group
+  tags         = local.tags
 }
 
 module "log_analytics" {
@@ -71,12 +81,13 @@ module "log_analytics" {
 module "storage" {
   source = "../../modules/storage"
 
-  name                = var.storage_account_name
-  resource_group_name = module.resource_group.name
-  location            = module.resource_group.location
+  name                  = var.storage_account_name
+  resource_group_name   = module.resource_group.name
+  location              = module.resource_group.location
+  file_share_quota_gb   = var.postgres_file_share_quota_gb
   create_blob_container = var.create_blob_container
   blob_container_name   = var.azure_storage_container_name
-  tags                = local.tags
+  tags                  = local.tags
 }
 
 module "container_apps_environment" {
@@ -103,6 +114,10 @@ module "postgres" {
   postgres_db                  = var.postgres_db
   postgres_password            = var.postgres_password
   environment_default_domain   = module.container_apps_environment.default_domain
+  min_replicas                 = var.aca_min_replicas
+  max_replicas                 = var.aca_max_replicas
+  cpu                          = 0.25
+  memory                       = "1Gi"
   tags                         = local.tags
 }
 
@@ -113,11 +128,14 @@ module "api" {
   resource_group_name          = module.resource_group.name
   location                     = module.resource_group.location
   container_app_environment_id = module.container_apps_environment.id
-  acr_id                       = data.azurerm_container_registry.shared.id
-  acr_login_server             = data.azurerm_container_registry.shared.login_server
+  use_acr                      = var.use_acr
+  acr_id                       = local.acr_id
+  acr_login_server             = local.acr_login_server
   image                        = local.api_image
   secrets                      = local.api_secrets
   env_vars                     = local.api_env
+  min_replicas                 = var.aca_min_replicas
+  max_replicas                 = var.aca_max_replicas
   tags                         = local.tags
 
   depends_on = [module.postgres]
@@ -130,10 +148,30 @@ module "web" {
   resource_group_name          = module.resource_group.name
   location                     = module.resource_group.location
   container_app_environment_id = module.container_apps_environment.id
-  acr_id                       = data.azurerm_container_registry.shared.id
-  acr_login_server             = data.azurerm_container_registry.shared.login_server
+  use_acr                      = var.use_acr
+  acr_id                       = local.acr_id
+  acr_login_server             = local.acr_login_server
   image                        = local.web_image
+  min_replicas                 = var.aca_min_replicas
+  max_replicas                 = var.aca_max_replicas
   tags                         = local.tags
 
   depends_on = [module.api]
+}
+
+module "aca_schedule" {
+  source = "../../modules/aca_schedule"
+
+  name_prefix                     = var.automation_name_prefix
+  resource_group_name             = module.resource_group.name
+  location                        = module.resource_group.location
+  subscription_id                 = data.azurerm_client_config.current.subscription_id
+  enabled                         = var.enable_aca_weekday_schedule
+  container_app_names_start_order = ["postgres", "api", "web"]
+  container_app_names_stop_order  = ["web", "api", "postgres"]
+  weekday_start_time              = var.aca_schedule_start
+  weekday_stop_time               = var.aca_schedule_stop
+  timezone                        = var.aca_schedule_timezone
+  scheduled_min_replicas          = var.aca_scheduled_min_replicas
+  tags                            = local.tags
 }

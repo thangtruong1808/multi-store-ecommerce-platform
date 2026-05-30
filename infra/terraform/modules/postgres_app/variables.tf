@@ -35,6 +35,26 @@ variable "environment_default_domain" {
   description = "Container Apps environment default domain suffix."
 }
 
+variable "min_replicas" {
+  type    = number
+  default = 0
+}
+
+variable "max_replicas" {
+  type    = number
+  default = 1
+}
+
+variable "cpu" {
+  type    = number
+  default = 0.25
+}
+
+variable "memory" {
+  type    = string
+  default = "1Gi"
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

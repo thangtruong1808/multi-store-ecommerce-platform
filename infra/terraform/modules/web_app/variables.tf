@@ -15,12 +15,19 @@ variable "container_app_environment_id" {
   type = string
 }
 
+variable "use_acr" {
+  type    = bool
+  default = false
+}
+
 variable "acr_id" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "acr_login_server" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "image" {
@@ -29,12 +36,12 @@ variable "image" {
 
 variable "min_replicas" {
   type    = number
-  default = 1
+  default = 0
 }
 
 variable "max_replicas" {
   type    = number
-  default = 3
+  default = 1
 }
 
 variable "cpu" {

@@ -15,12 +15,20 @@ variable "container_app_environment_id" {
   type = string
 }
 
+variable "use_acr" {
+  type        = bool
+  default     = false
+  description = "When true, pull from ACR with managed identity. When false, use a public image (e.g. GHCR)."
+}
+
 variable "acr_id" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "acr_login_server" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "image" {
@@ -46,22 +54,33 @@ variable "env_vars" {
 
 variable "min_replicas" {
   type    = number
-  default = 1
+  default = 0
 }
 
 variable "max_replicas" {
   type    = number
-  default = 3
+  default = 1
 }
 
 variable "cpu" {
   type    = number
-  default = 0.5
+  default = 0.25
 }
 
 variable "memory" {
   type    = string
-  default = "1Gi"
+  default = "0.5Gi"
+}
+
+variable "liveness_probe_initial_delay" {
+  type        = number
+  default     = 60
+  description = "Extra delay for cold start after scale-from-zero (Postgres warmup)."
+}
+
+variable "readiness_probe_initial_delay" {
+  type    = number
+  default = 45
 }
 
 variable "tags" {

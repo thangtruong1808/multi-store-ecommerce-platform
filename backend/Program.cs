@@ -16,7 +16,10 @@ using Npgsql; // PostgreSQL database connection
 var builder = WebApplication.CreateBuilder(args); // Web application builder (runs first: entry point for service registration)
 
 // --- Configuration (step 1 in the “no authentication yet” flow) ---
-LoadDotEnv(Path.Combine(builder.Environment.ContentRootPath, ".env")); // Load environment variables from .env file 
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    LoadDotEnv(Path.Combine(builder.Environment.ContentRootPath, ".env")); // Load environment variables from .env file
+}
 builder.Configuration.AddEnvironmentVariables(); // Add environment variables to the configuration
 
 // --- Core API shell: controllers, OpenAPI, database (still step 1: works without auth) ---
@@ -201,3 +204,5 @@ static string DecodeEscapedNewLines(string value) // Decode the escaped new line
 {
     return value.Replace("\\n", "\n", StringComparison.Ordinal); // Replace the escaped new lines with the new lines        
 }
+
+public partial class Program { }

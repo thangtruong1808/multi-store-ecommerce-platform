@@ -15,5 +15,6 @@ output "url" {
 }
 
 output "identity_principal_id" {
-  value = azurerm_user_assigned_identity.api.principal_id
+  value       = var.use_acr ? azurerm_user_assigned_identity.api[0].principal_id : null
+  description = "Null when use_acr is false (GHCR public pull)."
 }

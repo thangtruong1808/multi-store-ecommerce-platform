@@ -5,21 +5,103 @@ variable "environment" {
 
 variable "resource_group_name" {
   type    = string
-  default = "rg-multistore-staging"
+  default = "multi-store-ecommerce-rg"
 }
 
 variable "location" {
   type    = string
-  default = "australiaeast"
+  default = "australiacentral"
+}
+
+variable "use_existing_resource_group" {
+  type        = bool
+  default     = true
+  description = "Use the existing Azure resource group instead of creating a new one."
+}
+
+variable "use_acr" {
+  type        = bool
+  default     = false
+  description = "When false, pull public images from GHCR (no ACR cost)."
 }
 
 variable "acr_name" {
-  type = string
+  type    = string
+  default = ""
+
+  validation {
+    condition     = !var.use_acr || length(var.acr_name) > 0
+    error_message = "acr_name must be set when use_acr is true."
+  }
 }
 
 variable "acr_resource_group_name" {
   type    = string
-  default = "rg-multistore-shared"
+  default = "multi-store-ecommerce-rg"
+}
+
+variable "ghcr_owner" {
+  type        = string
+  default     = "thangtruong1808"
+  description = "GitHub user/org for ghcr.io/<owner>/multi-store-api:<tag> images."
+}
+
+variable "api_image_override" {
+  type        = string
+  default     = ""
+  description = "Optional full image ref; overrides ghcr.io default when use_acr = false."
+}
+
+variable "web_image_override" {
+  type    = string
+  default = ""
+}
+
+variable "aca_min_replicas" {
+  type        = number
+  default     = 0
+  description = "Idle min replicas (0 = scale to zero outside showcase hours)."
+}
+
+variable "aca_max_replicas" {
+  type    = number
+  default = 1
+}
+
+variable "postgres_file_share_quota_gb" {
+  type    = number
+  default = 10
+}
+
+variable "enable_aca_weekday_schedule" {
+  type        = bool
+  default     = true
+  description = "Azure Automation: start 10:00, stop 17:00 Mon–Fri (AUS Central)."
+}
+
+variable "aca_schedule_start" {
+  type    = string
+  default = "10:00:00"
+}
+
+variable "aca_schedule_stop" {
+  type    = string
+  default = "17:00:00"
+}
+
+variable "aca_schedule_timezone" {
+  type    = string
+  default = "AUS Central Standard Time"
+}
+
+variable "aca_scheduled_min_replicas" {
+  type    = number
+  default = 1
+}
+
+variable "automation_name_prefix" {
+  type    = string
+  default = "aa-multistore-staging"
 }
 
 variable "log_analytics_name" {

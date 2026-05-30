@@ -1,11 +1,11 @@
 output "name" {
-  value = azurerm_resource_group.this.name
+  value = local.name
 }
 
 output "location" {
-  value = azurerm_resource_group.this.location
+  value = local.location
 }
 
 output "id" {
-  value = azurerm_resource_group.this.id
+  value = local.id
 }

@@ -1,4 +1,5 @@
 resource "azurerm_user_assigned_identity" "web" {
+  count               = var.use_acr ? 1 : 0
   name                = "${var.name}-identity"
   location            = var.location
   resource_group_name = var.resource_group_name
@@ -6,9 +7,10 @@ resource "azurerm_user_assigned_identity" "web" {
 }
 
 resource "azurerm_role_assignment" "acr_pull" {
+  count                = var.use_acr ? 1 : 0
   scope                = var.acr_id
   role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.web.principal_id
+  principal_id         = azurerm_user_assigned_identity.web[0].principal_id
 }
 
 resource "azurerm_container_app" "web" {
@@ -17,14 +19,20 @@ resource "azurerm_container_app" "web" {
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
 
-  identity {
-    type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.web.id]
+  dynamic "identity" {
+    for_each = var.use_acr ? [1] : []
+    content {
+      type         = "UserAssigned"
+      identity_ids = [azurerm_user_assigned_identity.web[0].id]
+    }
   }
 
-  registry {
-    server   = var.acr_login_server
-    identity = azurerm_user_assigned_identity.web.id
+  dynamic "registry" {
+    for_each = var.use_acr ? [1] : []
+    content {
+      server   = var.acr_login_server
+      identity = azurerm_user_assigned_identity.web[0].id
+    }
   }
 
   template {

@@ -21,3 +21,20 @@ output "web_fqdn" {
 output "container_apps_environment_id" {
   value = module.container_apps_environment.id
 }
+
+output "api_image" {
+  value       = local.api_image
+  description = "Image reference used by the API Container App (GHCR when use_acr = false)."
+}
+
+output "web_image" {
+  value = local.web_image
+}
+
+output "showcase_hours" {
+  value = var.enable_aca_weekday_schedule ? "${var.aca_schedule_start}-${var.aca_schedule_stop} Mon-Fri (${var.aca_schedule_timezone})" : "disabled — use scripts/aca-start.sh"
+}
+
+output "automation_account_name" {
+  value = module.aca_schedule.automation_account_name
+}

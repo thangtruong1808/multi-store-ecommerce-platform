@@ -5,21 +5,93 @@ variable "environment" {
 
 variable "resource_group_name" {
   type    = string
-  default = "rg-multistore-prod"
+  default = "multi-store-ecommerce-rg"
 }
 
 variable "location" {
   type    = string
-  default = "australiaeast"
+  default = "australiacentral"
+}
+
+variable "use_existing_resource_group" {
+  type        = bool
+  default     = true
+  description = "Use the existing Azure resource group instead of creating a new one."
+}
+
+variable "use_acr" {
+  type    = bool
+  default = false
 }
 
 variable "acr_name" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "acr_resource_group_name" {
   type    = string
-  default = "rg-multistore-shared"
+  default = "multi-store-ecommerce-rg"
+}
+
+variable "ghcr_owner" {
+  type    = string
+  default = "thangtruong1808"
+}
+
+variable "api_image_override" {
+  type    = string
+  default = ""
+}
+
+variable "web_image_override" {
+  type    = string
+  default = ""
+}
+
+variable "aca_min_replicas" {
+  type    = number
+  default = 1
+}
+
+variable "aca_max_replicas" {
+  type    = number
+  default = 1
+}
+
+variable "postgres_file_share_quota_gb" {
+  type    = number
+  default = 10
+}
+
+variable "enable_aca_weekday_schedule" {
+  type    = bool
+  default = false
+}
+
+variable "aca_schedule_start" {
+  type    = string
+  default = "10:00:00"
+}
+
+variable "aca_schedule_stop" {
+  type    = string
+  default = "17:00:00"
+}
+
+variable "aca_schedule_timezone" {
+  type    = string
+  default = "AUS Central Standard Time"
+}
+
+variable "aca_scheduled_min_replicas" {
+  type    = number
+  default = 1
+}
+
+variable "automation_name_prefix" {
+  type    = string
+  default = "aa-multistore-prod"
 }
 
 variable "log_analytics_name" {

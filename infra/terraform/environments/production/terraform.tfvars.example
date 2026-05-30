@@ -1,29 +1,33 @@
 # Copy to terraform.tfvars — do not commit terraform.tfvars (gitignored).
 
-location                = "australiaeast"
-resource_group_name     = "rg-multistore-prod"
-storage_account_name    = "stmultistoreprodCHANGE_ME"
-acr_name                = "multistoreacrCHANGE_ME"
-acr_resource_group_name = "rg-multistore-shared"
-image_tag               = "production"
+location                    = "australiacentral"
+resource_group_name         = "multi-store-ecommerce-rg"
+use_existing_resource_group = true
+storage_account_name        = "stmultistoreprodCHANGE_ME"
 
-postgres_password       = "change-me-strong-production-password"
+use_acr    = false
+ghcr_owner = "thangtruong1808"
+image_tag  = "production"
 
-cors_allowed_origins    = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
-public_app_base_url     = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
+aca_min_replicas            = 1
+enable_aca_weekday_schedule = false
 
-jwt_secret              = "change-me-use-a-different-long-secret-for-production"
+postgres_password = "change-me-strong-production-password"
 
-stripe_secret_key       = "sk_live_..."
-stripe_webhook_secret   = "whsec_..."
-stripe_publishable_key  = "pk_live_..."
+cors_allowed_origins = "https://web-xxxxx.australiacentral.azurecontainerapps.io"
+public_app_base_url  = "https://web-xxxxx.australiacentral.azurecontainerapps.io"
+
+jwt_secret = "change-me-use-a-different-long-secret-for-production"
+
+stripe_secret_key      = "sk_live_..."
+stripe_webhook_secret  = "whsec_..."
+stripe_publishable_key = "pk_live_..."
 
 azure_storage_enabled           = true
 azure_storage_connection_string = "DefaultEndpointsProtocol=https;AccountName=..."
 azure_storage_public_base_url   = "https://YOUR_ACCOUNT.blob.core.windows.net/product-photos"
 
-# Do not create a second photo container — reuse your existing blob account:
-# create_blob_container = false
+create_blob_container = false
 
-acs_email_enabled       = true
-contact_form_to_email   = "you@example.com"
+acs_email_enabled     = true
+contact_form_to_email = "you@example.com"

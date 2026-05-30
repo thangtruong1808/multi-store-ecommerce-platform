@@ -10,8 +10,8 @@ resource "azurerm_container_app" "postgres" {
   }
 
   template {
-    min_replicas = 1
-    max_replicas = 1
+    min_replicas = var.min_replicas
+    max_replicas = var.max_replicas
 
     volume {
       name         = "postgres-data"
@@ -22,8 +22,8 @@ resource "azurerm_container_app" "postgres" {
     container {
       name   = "postgres"
       image  = "docker.io/library/postgres:16-alpine"
-      cpu    = 0.5
-      memory = "1Gi"
+      cpu    = var.cpu
+      memory = var.memory
 
       env {
         name        = "POSTGRES_PASSWORD"
