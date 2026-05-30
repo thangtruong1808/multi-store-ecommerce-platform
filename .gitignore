@@ -16,3 +16,12 @@ backend/.env
 BRANCH_PRODUCTION_GUIDE.local.md
 guide/**/*.local.md
 guide/local/
+
+# Terraform
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/terraform.tfvars
+infra/terraform/**/backend.hcl
+!infra/terraform/**/terraform.tfvars.example
+!infra/terraform/**/backend.hcl.example

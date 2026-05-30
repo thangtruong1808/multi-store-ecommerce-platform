@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars — do not commit terraform.tfvars (gitignored).
+
+location                = "australiaeast"
+resource_group_name     = "rg-multistore-prod"
+storage_account_name    = "stmultistoreprodCHANGE_ME"
+acr_name                = "multistoreacrCHANGE_ME"
+acr_resource_group_name = "rg-multistore-shared"
+image_tag               = "production"
+
+postgres_password       = "change-me-strong-production-password"
+
+cors_allowed_origins    = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
+public_app_base_url     = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
+
+jwt_secret              = "change-me-use-a-different-long-secret-for-production"
+
+stripe_secret_key       = "sk_live_..."
+stripe_webhook_secret   = "whsec_..."
+stripe_publishable_key  = "pk_live_..."
+
+azure_storage_enabled           = true
+azure_storage_connection_string = "DefaultEndpointsProtocol=https;AccountName=..."
+azure_storage_public_base_url   = "https://YOUR_ACCOUNT.blob.core.windows.net/product-photos"
+
+# Do not create a second photo container — reuse your existing blob account:
+# create_blob_container = false
+
+acs_email_enabled       = true
+contact_form_to_email   = "you@example.com"

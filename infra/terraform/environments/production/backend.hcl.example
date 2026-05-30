@@ -1,0 +1,4 @@
+resource_group_name  = "rg-multistore-shared"
+storage_account_name = "tfstatemultistore"
+container_name       = "tfstate"
+key                  = "production.terraform.tfstate"

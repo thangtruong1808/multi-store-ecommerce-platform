@@ -2,6 +2,8 @@
 
 Store Docker images for the **API** (`multi-store-api`) and **web** (`multi-store-web`) containers. Azure Container Apps pulls from ACR at deploy time.
 
+> **Primary path:** GitHub Actions builds and pushes images on push to `develop` (tag `staging`) or `main` (tag `production`). See [github-actions-setup.md](./github-actions-setup.md). Terraform creates the shared ACR — [terraform-azure.md](./terraform-azure.md). Manual steps below are for troubleshooting or first-time bootstrap before CI is configured.
+
 ## Prerequisites
 
 - Azure subscription and resource group (e.g. `rg-multistore`)
@@ -81,15 +83,20 @@ Portal: Container Apps environment → **Containers** → your app → **Registr
 
 ## 6. Version tags (recommended)
 
-Use Git SHA or date tags instead of only `latest`:
+CI uses environment tags automatically:
+
+| Branch | API / web tags |
+|--------|----------------|
+| `develop` | `staging`, `sha-<commit>` |
+| `main` | `production`, `latest`, `sha-<commit>` |
+
+Manual tagging example:
 
 ```bash
 TAG=$(git rev-parse --short HEAD)
 docker build -t multistoreacr.azurecr.io/multi-store-api:$TAG ./backend
 docker push multistoreacr.azurecr.io/multi-store-api:$TAG
 ```
-
-Update each Container App to the new tag when releasing.
 
 ## 7. Optional — build in Azure (ACR Tasks)
 
@@ -114,4 +121,4 @@ az acr build --registry multistoreacr \
 
 ## Next step
 
-[azure-container-apps-deploy.md](./azure-container-apps-deploy.md)
+[terraform-azure.md](./terraform-azure.md) (primary) or [azure-container-apps-deploy.md](./azure-container-apps-deploy.md) (manual fallback)

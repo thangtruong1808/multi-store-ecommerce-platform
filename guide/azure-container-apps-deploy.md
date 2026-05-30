@@ -1,5 +1,7 @@
 # Azure Container Apps — deploy API, web, and PostgreSQL
 
+> **Prefer Terraform:** [terraform-azure.md](./terraform-azure.md) provisions staging and production automatically. Use this guide for **manual Portal/CLI** setup or troubleshooting only.
+
 Deploy three workloads in one **Container Apps environment**:
 
 | Container App | Image | Ingress | Port |
@@ -77,7 +79,7 @@ Portal: **Create** → Container App → name `postgres`, environment `$ENV`, im
 - **CPU / Memory**: 0.5 CPU, 1 Gi (adjust as needed)  
 - **Volume**: mount environment storage `postgres-volume` → `/var/lib/postgresql/data`  
 - **Secrets**: `POSTGRES_PASSWORD`  
-- **Env**: `POSTGRES_USER=app`, `POSTGRES_DB=multistore`, `POSTGRES_PASSWORD=secretref:postgres-password`  
+- **Env**: `POSTGRES_USER=postgres`, `POSTGRES_DB=MULTIPLY`, `POSTGRES_PASSWORD=secretref:postgres-password`  
 
 Note the **internal** hostname (e.g. `postgres.internal.<env-domain>`) for the API connection string.
 
@@ -100,14 +102,14 @@ Image: `multistoreacr.azurecr.io/multi-store-api:latest` (ACR credentials or man
 ```env
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://+:8080
-ConnectionStrings__Default=Host=postgres;Port=5432;Database=multistore;Username=app;Password=...
+ConnectionStrings__Default=Host=postgres;Port=5432;Database=MULTIPLY;Username=postgres;Password=...
 CORS_ALLOWED_ORIGINS=https://YOUR-WEB-FQDN
 PUBLIC_APP_BASE_URL=https://YOUR-WEB-FQDN
 AUTH_COOKIE_SECURE=true
 MAINTENANCE_MODE=false
 JWT_SECRET=...
-JWT_ISSUER=multi-store
-JWT_AUDIENCE=multi-store
+JWT_ISSUER=multi-store-ecommerce-platform-api
+JWT_AUDIENCE=multi-store-ecommerce-platform-client
 JWT_ACCESS_TOKEN_MINUTES=15
 JWT_REFRESH_TOKEN_DAYS=7
 STRIPE_SECRET_KEY=...

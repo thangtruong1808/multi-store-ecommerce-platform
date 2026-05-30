@@ -1,0 +1,70 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Build, push, and update staging
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      IMAGE_TAG: staging
+      SHA_TAG: sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ vars.ACR_NAME }}
+
+      - name: Build and push API image
+        run: |
+          API_IMAGE=${{ vars.ACR_LOGIN_SERVER }}/multi-store-api
+          docker build -t ${API_IMAGE}:${IMAGE_TAG} -t ${API_IMAGE}:${SHA_TAG} ./backend
+          docker push ${API_IMAGE}:${IMAGE_TAG}
+          docker push ${API_IMAGE}:${SHA_TAG}
+
+      - name: Build and push web image
+        run: |
+          WEB_IMAGE=${{ vars.ACR_LOGIN_SERVER }}/multi-store-web
+          docker build -t ${WEB_IMAGE}:${IMAGE_TAG} -t ${WEB_IMAGE}:${SHA_TAG} \
+            --build-arg VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }} \
+            --build-arg VITE_PRODUCT_MEDIA_BASE_URL=${{ vars.VITE_PRODUCT_MEDIA_BASE_URL }} \
+            --build-arg VITE_SUPPORT_EMAIL=${{ vars.VITE_SUPPORT_EMAIL }} \
+            ./frontend
+          docker push ${WEB_IMAGE}:${IMAGE_TAG}
+          docker push ${WEB_IMAGE}:${SHA_TAG}
+
+      - name: Update API container app
+        run: |
+          az containerapp update \
+            --name api \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --image ${{ vars.ACR_LOGIN_SERVER }}/multi-store-api:${IMAGE_TAG}
+
+      - name: Update web container app
+        run: |
+          az containerapp update \
+            --name web \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --image ${{ vars.ACR_LOGIN_SERVER }}/multi-store-web:${IMAGE_TAG}
+
+      - name: Smoke test API health
+        run: |
+          curl -fsS "${{ vars.API_URL }}/api/health" | grep -q '"status":"ok"'

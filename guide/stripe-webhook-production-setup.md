@@ -1,15 +1,22 @@
-# Stripe webhooks in production (Container Apps)
+# Stripe webhooks (staging and production)
 
 Stripe notifies your API when checkout completes. The handler lives at:
 
 `POST https://<YOUR-API-FQDN>/api/webhooks/stripe`
+
+Create **separate webhook endpoints** in Stripe for staging and production API URLs.
+
+| Environment | API URL source | Stripe keys |
+|-------------|----------------|-------------|
+| Staging | Terraform output / GitHub `API_URL` (staging) | `sk_test_`, test `whsec_` |
+| Production | Terraform output / GitHub `API_URL` (production) | `sk_live_`, live `whsec_` |
 
 Implementation: [`StripeWebhookController.cs`](../backend/Controllers/StripeWebhookController.cs)  
 Raw body buffering: [`Program.cs`](../backend/Program.cs) (middleware for `/api/webhooks/stripe`).
 
 ## Prerequisites
 
-- API deployed with HTTPS — [azure-container-apps-deploy.md](./azure-container-apps-deploy.md)
+- API deployed with HTTPS — [terraform-azure.md](./terraform-azure.md) or [azure-container-apps-deploy.md](./azure-container-apps-deploy.md)
 - `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` set on the **api** Container App
 - `PUBLIC_APP_BASE_URL` = storefront URL (for checkout redirect, not webhook)
 

@@ -1,6 +1,6 @@
 # Docker — local development with Compose
 
-This guide runs the full stack locally with Docker: **PostgreSQL**, **.NET API**, and **nginx + React storefront**. It mirrors the production layout on Azure Container Apps (see [azure-container-apps-deploy.md](./azure-container-apps-deploy.md)).
+This guide runs the full stack locally with Docker: **PostgreSQL**, **.NET API**, and **nginx + React storefront**. It mirrors the layout on Azure Container Apps. For cloud deploy, see [devops-overview.md](./devops-overview.md) and [terraform-azure.md](./terraform-azure.md).
 
 ## Prerequisites
 
@@ -53,7 +53,9 @@ First start may take several minutes (image build + npm install).
 | http://localhost/api/health | API health (via nginx proxy) |
 | http://localhost:8080/api/health | API direct (optional) |
 | http://localhost/maintenance.html | Static maintenance page |
-| `localhost:5432` | PostgreSQL (for tools like pgAdmin) |
+| `localhost:5433` | PostgreSQL in Docker (if compose maps `5433:5432`; use pgAdmin to avoid clashing with Windows Postgres on `5432`) |
+
+Tables are created in schema **`app`**, database **`MULTIPLY`**.
 
 ## 3. Database schema
 
@@ -125,6 +127,6 @@ docker compose up -d web
 
 ## Next steps
 
-1. [azure-container-registry.md](./azure-container-registry.md) — push images to ACR  
-2. [azure-storage-blob-and-file-share.md](./azure-storage-blob-and-file-share.md) — Blob + File Share for Postgres on Azure  
-3. [azure-container-apps-deploy.md](./azure-container-apps-deploy.md) — deploy to Azure Container Apps  
+1. [devops-overview.md](./devops-overview.md) — Terraform + GitHub Actions path  
+2. [terraform-azure.md](./terraform-azure.md) — provision staging and production  
+3. [github-actions-setup.md](./github-actions-setup.md) — CI/CD on `develop` / `main`  

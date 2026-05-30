@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and set acr_name to a globally unique value.
+# Example: acr_name = "multistoreacr12345"
+
+location             = "australiaeast"
+resource_group_name  = "rg-multistore-shared"
+acr_name             = "multistoreacrCHANGE_ME"
