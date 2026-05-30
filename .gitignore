@@ -16,6 +16,7 @@ backend/.env
 BRANCH_PRODUCTION_GUIDE.local.md
 guide/**/*.local.md
 guide/local/
+guide/
 
 # Terraform
 infra/terraform/**/.terraform/
