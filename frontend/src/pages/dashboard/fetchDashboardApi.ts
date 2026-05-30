@@ -71,8 +71,7 @@ function cloneInitForRetry(init?: RequestInit): RequestInit | undefined {
   }
 
   if (ArrayBuffer.isView(body)) {
-    const view = body as ArrayBufferView
-    retry.body = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength)
+    retry.body = new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
     return retry
   }
 

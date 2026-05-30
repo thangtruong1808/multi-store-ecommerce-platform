@@ -38,7 +38,7 @@ type InfoTileProps = {
 function InfoTile({ icon: Icon, label, value, isLoading = false, title }: InfoTileProps) {
   return (
     <div className={MENU_TILE_SURFACE} title={title ?? value}>
-      <span className={MENU_TILE_ICON}>{isLoading ? <MenuTileSpinner /> : <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />}</span>
+      <span className={MENU_TILE_ICON}>{isLoading ? <MenuTileSpinner /> : <Icon className="h-5 w-5 shrink-0" aria-hidden={true} />}</span>
       <span className={MENU_TILE_LABEL}>{label}</span>
       <span className={MENU_TILE_VALUE}>{isLoading ? 'Loading…' : value}</span>
     </div>
@@ -110,7 +110,7 @@ function ActionTile({ to, icon: Icon, label, onAction, disabled = false, isBusy 
   const body = (
     <>
       <span className={MENU_TILE_ICON}>
-        {children ?? (isBusy ? <MenuTileSpinner /> : <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />)}
+        {children ?? (isBusy ? <MenuTileSpinner /> : <Icon className="h-5 w-5 shrink-0" aria-hidden={true} />)}
       </span>
       <span className={MENU_TILE_ACTION_LABEL}>{label}</span>
     </>

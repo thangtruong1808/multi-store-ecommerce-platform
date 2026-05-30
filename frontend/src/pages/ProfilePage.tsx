@@ -153,7 +153,7 @@ function ProfilePage() {
   }, [avatarPreviewUrl])
 
   const persistedAvatarUrl = useMemo(() => {
-    const key = formData.avatarS3Key.trim() || user?.avatarS3Key?.trim() || ''
+    const key = formData.avatarS3Key?.trim() || user?.avatarS3Key?.trim() || ''
     if (!key || !mediaBaseUrl) return null
     return buildProductMediaUrl(key, mediaBaseUrl)
   }, [formData.avatarS3Key, mediaBaseUrl, user?.avatarS3Key])
