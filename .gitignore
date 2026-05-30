@@ -28,6 +28,7 @@ infra/terraform/**/backend.hcl
 BRANCH_PRODUCTION_GUIDE.local.md
 guide/**/*.local.md
 guide/local/
+guide/
 
 # -----------------------------------------------------------------------------
 # COMMITTED ON PURPOSE (do not add to .gitignore):
