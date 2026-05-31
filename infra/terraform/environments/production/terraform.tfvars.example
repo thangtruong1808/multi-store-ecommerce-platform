@@ -10,6 +10,7 @@ ghcr_owner = "thangtruong1808"
 image_tag  = "production"
 
 aca_min_replicas            = 1
+aca_max_replicas            = 2
 enable_aca_weekday_schedule = false
 
 postgres_password = "change-me-strong-production-password"

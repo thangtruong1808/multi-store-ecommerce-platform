@@ -1,6 +1,6 @@
 # Copy to terraform.tfvars — do not commit terraform.tfvars (gitignored).
 #
-# Showcase cost profile: GHCR images, scale-to-zero, weekday 10:00–17:00 (AUS Central).
+# Showcase cost profile: GHCR images, scale-to-zero, weekday 10:00–17:00 (Australia/Darwin).
 
 location                      = "australiacentral"
 resource_group_name           = "multi-store-ecommerce-rg"
@@ -17,11 +17,12 @@ image_tag  = "staging"
 
 # Scale-to-zero + weekday schedule (Automation account, Free tier)
 aca_min_replicas            = 0
-aca_max_replicas            = 1
+aca_max_replicas            = 2
 enable_aca_weekday_schedule = true
 aca_schedule_start          = "10:00:00"
 aca_schedule_stop           = "17:00:00"
-aca_schedule_timezone       = "AUS Central Standard Time"
+aca_schedule_timezone       = "Australia/Darwin"
+aca_schedule_utc_offset     = "+09:30"
 postgres_file_share_quota_gb = 10
 
 postgres_password = "change-me-strong-password"

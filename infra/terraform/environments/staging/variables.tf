@@ -64,8 +64,9 @@ variable "aca_min_replicas" {
 }
 
 variable "aca_max_replicas" {
-  type    = number
-  default = 1
+  type        = number
+  default     = 2
+  description = "Max replicas per Container App (api/web/postgres). ACA scales out under HTTP load; billed only while extra replicas run."
 }
 
 variable "postgres_file_share_quota_gb" {
@@ -76,7 +77,7 @@ variable "postgres_file_share_quota_gb" {
 variable "enable_aca_weekday_schedule" {
   type        = bool
   default     = true
-  description = "Azure Automation: start 10:00, stop 17:00 Mon–Fri (AUS Central)."
+  description = "Azure Automation: start 10:00, stop 17:00 Mon–Fri (Australia/Darwin)."
 }
 
 variable "aca_schedule_start" {
@@ -91,7 +92,13 @@ variable "aca_schedule_stop" {
 
 variable "aca_schedule_timezone" {
   type    = string
-  default = "AUS Central Standard Time"
+  default = "Australia/Darwin"
+}
+
+variable "aca_schedule_utc_offset" {
+  type        = string
+  default     = "+09:30"
+  description = "RFC3339 offset for Automation schedule start_time (ACST for australiacentral)."
 }
 
 variable "aca_scheduled_min_replicas" {

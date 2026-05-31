@@ -172,6 +172,7 @@ module "aca_schedule" {
   weekday_start_time              = var.aca_schedule_start
   weekday_stop_time               = var.aca_schedule_stop
   timezone                        = var.aca_schedule_timezone
+  schedule_utc_offset             = var.aca_schedule_utc_offset
   scheduled_min_replicas          = var.aca_scheduled_min_replicas
   tags                            = local.tags
 }

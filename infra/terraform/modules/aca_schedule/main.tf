@@ -1,5 +1,3 @@
-data "azurerm_client_config" "current" {}
-
 locals {
   start_apps = join(", ", [for a in var.container_app_names_start_order : "\"${a}\""])
   stop_apps  = join(", ", [for a in var.container_app_names_stop_order : "\"${a}\""])
@@ -18,8 +16,9 @@ locals {
     stop_apps           = local.stop_apps
   })
 
-  schedule_start = "${var.schedule_anchor_date}T${var.weekday_start_time}"
-  schedule_stop  = "${var.schedule_anchor_date}T${var.weekday_stop_time}"
+  # azurerm_automation_schedule.start_time requires RFC3339 with offset (azurerm provider 4.x).
+  schedule_start = "${var.schedule_anchor_date}T${var.weekday_start_time}${var.schedule_utc_offset}"
+  schedule_stop  = "${var.schedule_anchor_date}T${var.weekday_stop_time}${var.schedule_utc_offset}"
 }
 
 resource "azurerm_automation_account" "this" {

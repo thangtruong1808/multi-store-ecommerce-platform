@@ -55,8 +55,9 @@ variable "aca_min_replicas" {
 }
 
 variable "aca_max_replicas" {
-  type    = number
-  default = 1
+  type        = number
+  default     = 2
+  description = "Max replicas per Container App (api/web/postgres). ACA scales out under HTTP load; billed only while extra replicas run."
 }
 
 variable "postgres_file_share_quota_gb" {
@@ -81,7 +82,12 @@ variable "aca_schedule_stop" {
 
 variable "aca_schedule_timezone" {
   type    = string
-  default = "AUS Central Standard Time"
+  default = "Australia/Darwin"
+}
+
+variable "aca_schedule_utc_offset" {
+  type    = string
+  default = "+09:30"
 }
 
 variable "aca_scheduled_min_replicas" {

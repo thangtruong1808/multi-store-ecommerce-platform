@@ -45,8 +45,14 @@ variable "weekday_stop_time" {
 
 variable "timezone" {
   type        = string
-  default     = "AUS Central Standard Time"
-  description = "Windows timezone name for australiacentral."
+  default     = "Australia/Darwin"
+  description = "IANA timezone for Azure Automation schedule (australiacentral ≈ Australia/Darwin, UTC+9:30)."
+}
+
+variable "schedule_utc_offset" {
+  type        = string
+  default     = "+09:30"
+  description = "RFC3339 offset appended to weekday_start_time / weekday_stop_time (match timezone)."
 }
 
 variable "scheduled_min_replicas" {
