@@ -14,7 +14,7 @@ Infrastructure as Code for **staging** and optional **production** Container App
 
 infra/terraform/
 
-├── modules/
+├── modules/              # Reusable modules — see [modules/README.md](modules/README.md)
 
 │   ├── aca_schedule/     # Azure Automation start/stop (Free tier)
 
@@ -116,7 +116,7 @@ Separate (unchanged when ACA sleeps):
   • Stripe (calls your API URL)
   • ACS email
 
-max_replicas = 1
+max_replicas = 2
 
 What happens in Pattern C at 10k simultaneous checkouts
 1. When users click “Pay” (before Stripe)
@@ -176,6 +176,8 @@ Option B — Functions + queue for webhooks
 
 
 ## 1. Bootstrap remote state (one time) = Khởi tạo ban đầu (setup lần đầu tiên)
+It only sets up where Terraform stores its state.
+
 
 ```bash
 
@@ -195,16 +197,13 @@ az storage container create --account-name $SA -n tfstate
 
 Copy backend config (includes separate state **key** per environment):
 
-
 ```bash
 
 cp backend.hcl.example backend.hcl   # in staging/ (and shared/ if used)
 
 ```
 
-
 ## 2. Apply order (GHCR showcase)
-
 
 
 ```bash
@@ -227,11 +226,7 @@ terraform apply
 
 ```
 
-
-
 **Before first apply:** push images to GHCR (merge to `develop` or build locally and push):
-
-
 
 ```bash
 
@@ -298,15 +293,42 @@ Then `terraform apply` again. Update GitHub Environment variables (`API_URL`, `V
 
 
 ## 6. GitHub Actions
+What you do next (your flow)
+1. terraform apply          → Azure infra created (local, after az login)
+2. (optional) terraform output web_url / api_url
+   → update terraform.tfvars + GitHub vars (API_URL, VITE_*)
+   → terraform apply again if you changed tfvars
+3. On your PC: checkout develop, commit, push
+   git checkout develop
+   git add ...
+   git commit -m "..."
+   git push origin develop
+4. GitHub Actions runs automatically
+5. Site can be live (if health check passes + apps scaled/warm)
 
+Branch: deploy staging runs on push to develop (not main). main triggers production deploy.
+
+You don’t have to be “in Azure CLI” for step 3 — only git push from your project folder (any terminal: Git Bash, PowerShell, etc.).
 
 
 - **Deploy staging:** push to `develop` → build/push **GHCR** → update Container Apps → scale up → health check with retries (cold start).
 
 - **Terraform apply:** Actions → *Terraform Apply* (manual).
+OIDC là viết tắt của OpenID Connect.  
 
+What GitHub runs on push to develop
+Workflow	      Trigger	                What it does
+CI              push to develop         Build/test backend + frontend — no GHCR deploy
+Deploy Staging  push to develop         Docker build → push GHCR → az containerapp update → scale up → health check
 
+One-line summary
+Yes: after terraform apply, commit and git push origin develop from your repo (on develop) triggers GitHub to build Docker images, push to GHCR, and update Container Apps — that’s how the running app gets your code, without you building Docker locally (unless you choose to).
 
+No: terraform apply does not trigger that by itself; the push to develop does.
+
+No: you don’t need az login on your laptop for the GitHub deploy step (only for local Terraform/az).
+
+If staging environment secrets/vars are already set and API_URL matches Terraform outputs, your sequence is the right one for the interview demo path.
 ## Secrets
 
 
@@ -314,7 +336,7 @@ Then `terraform apply` again. Update GitHub Environment variables (`API_URL`, `V
 Never commit `terraform.tfvars` or `backend.hcl`. Only `*.example` files are tracked.
 
 
-
+Bạn tự đặt tên resource trên cloud và tên biến Terraform, nhưng mọi argument trong block resource phải khớp đúng schema của provider Azure
 ## Modules
 
 
@@ -336,7 +358,6 @@ Never commit `terraform.tfvars` or `backend.hcl`. Only `*.example` files are tra
 
 
 ## Optional: enable ACR again
-
 
 
 `shared/terraform.tfvars`: `create_acr = true`, `acr_name = "..."`  
