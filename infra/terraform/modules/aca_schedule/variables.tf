@@ -45,13 +45,13 @@ variable "weekday_stop_time" {
 
 variable "timezone" {
   type        = string
-  default     = "Australia/Darwin"
-  description = "IANA timezone for Azure Automation schedule (australiacentral ≈ Australia/Darwin, UTC+9:30)."
+  default     = "Australia/Sydney"
+  description = "IANA timezone for Azure Automation schedule (australiaeast ≈ Australia/Sydney, UTC+10)."
 }
 
 variable "schedule_utc_offset" {
   type        = string
-  default     = "+09:30"
+  default     = "+10:00"
   description = "RFC3339 offset appended to weekday_start_time / weekday_stop_time (match timezone)."
 }
 
@@ -63,8 +63,8 @@ variable "scheduled_min_replicas" {
 
 variable "schedule_anchor_date" {
   type        = string
-  default     = "2026-06-02"
-  description = "ISO date used only to anchor weekly schedules (must be valid; time-of-day matters)."
+  default     = ""
+  description = "Optional ISO date anchoring the weekly schedules. Empty = 2 days from apply time (must be in the future when creating)."
 }
 
 variable "postgres_warmup_seconds" {

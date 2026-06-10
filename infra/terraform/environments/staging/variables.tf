@@ -13,6 +13,12 @@ variable "location" {
   default = "australiacentral"
 }
 
+variable "aca_location" {
+  type        = string
+  default     = "australiaeast"
+  description = "Region for the Container Apps Environment (australiacentral does not support Container Apps)."
+}
+
 variable "use_existing_resource_group" {
   type        = bool
   default     = true
@@ -77,7 +83,7 @@ variable "postgres_file_share_quota_gb" {
 variable "enable_aca_weekday_schedule" {
   type        = bool
   default     = true
-  description = "Azure Automation: start 10:00, stop 17:00 Mon–Fri (Australia/Darwin)."
+  description = "Azure Automation: start 10:00, stop 17:00 Mon–Fri (Australia/Sydney)."
 }
 
 variable "aca_schedule_start" {
@@ -92,13 +98,13 @@ variable "aca_schedule_stop" {
 
 variable "aca_schedule_timezone" {
   type    = string
-  default = "Australia/Darwin"
+  default = "Australia/Sydney"
 }
 
 variable "aca_schedule_utc_offset" {
   type        = string
-  default     = "+09:30"
-  description = "RFC3339 offset for Automation schedule start_time (ACST for australiacentral)."
+  default     = "+10:00"
+  description = "RFC3339 offset for Automation schedule start_time (AEST for australiaeast)."
 }
 
 variable "aca_scheduled_min_replicas" {
@@ -212,6 +218,18 @@ variable "stripe_webhook_secret" {
 variable "stripe_publishable_key" {
   type    = string
   default = ""
+}
+
+variable "create_photos_storage" {
+  type        = bool
+  default     = true
+  description = "Create the product-photos storage account + container in Terraform (delete the manual one first; names are globally unique)."
+}
+
+variable "photos_storage_account_name" {
+  type        = string
+  default     = "multistorephotos"
+  description = "Storage account for product photos (must match AZURE_STORAGE_PUBLIC_BASE_URL host)."
 }
 
 variable "azure_storage_enabled" {

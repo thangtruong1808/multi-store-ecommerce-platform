@@ -38,3 +38,8 @@ output "showcase_hours" {
 output "automation_account_name" {
   value = module.aca_schedule.automation_account_name
 }
+
+output "photos_public_base_url" {
+  value       = var.create_photos_storage ? module.photos_storage[0].public_base_url : var.azure_storage_public_base_url
+  description = "Product photo URL prefix (use for VITE_PRODUCT_MEDIA_BASE_URL)."
+}

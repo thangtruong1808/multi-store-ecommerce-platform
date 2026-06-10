@@ -22,16 +22,19 @@ locals {
 
   connection_string = "Host=postgres;Port=5432;Database=${var.postgres_db};Username=${var.postgres_user};Password=${var.postgres_password}"
 
-  api_secrets = {
+  acs_email_configured = var.acs_email_enabled && var.acs_email_connection_string != ""
+
+  api_secrets = merge({
     db-connection-string            = local.connection_string
     jwt-secret                      = var.jwt_secret
     stripe-secret-key               = var.stripe_secret_key
     stripe-webhook-secret           = var.stripe_webhook_secret
     azure-storage-connection-string = var.azure_storage_connection_string
-    acs-email-connection-string     = var.acs_email_connection_string
-  }
+    }, local.acs_email_configured ? {
+    acs-email-connection-string = var.acs_email_connection_string
+  } : {})
 
-  api_env = {
+  api_env = merge({
     ASPNETCORE_ENVIRONMENT          = { value = var.aspnetcore_environment }
     ASPNETCORE_URLS                 = { value = "http://+:8080" }
     ConnectionStrings__Default      = { secret_name = "db-connection-string" }
@@ -53,11 +56,14 @@ locals {
     AZURE_STORAGE_PUBLIC_BASE_URL   = { value = var.azure_storage_public_base_url }
     AZURE_STORAGE_MAX_UPLOAD_BYTES  = { value = tostring(var.azure_storage_max_upload_bytes) }
     ACS_EMAIL_ENABLED               = { value = tostring(var.acs_email_enabled) }
-    ACS_EMAIL_CONNECTION_STRING     = { secret_name = "acs-email-connection-string" }
     ACS_EMAIL_SENDER_ADDRESS        = { value = var.acs_email_sender_address }
     PASSWORD_RESET_TOKEN_MINUTES    = { value = tostring(var.password_reset_token_minutes) }
     CONTACT_FORM_TO_EMAIL           = { value = var.contact_form_to_email }
-  }
+    }, local.acs_email_configured ? {
+    ACS_EMAIL_CONNECTION_STRING = { secret_name = "acs-email-connection-string" }
+  } : {
+    ACS_EMAIL_CONNECTION_STRING = { value = "" }
+  })
 }
 
 module "resource_group" {
@@ -95,7 +101,7 @@ module "container_apps_environment" {
 
   name                       = var.container_apps_environment_name
   resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  location                   = var.aca_location
   log_analytics_workspace_id = module.log_analytics.id
   storage_account_name       = module.storage.name
   file_share_name            = module.storage.file_share_name
@@ -116,7 +122,7 @@ module "postgres" {
   environment_default_domain   = module.container_apps_environment.default_domain
   min_replicas                 = var.aca_min_replicas
   max_replicas                 = var.aca_max_replicas
-  cpu                          = 0.25
+  cpu                          = 0.5
   memory                       = "1Gi"
   tags                         = local.tags
 }

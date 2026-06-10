@@ -13,6 +13,12 @@ variable "location" {
   default = "australiacentral"
 }
 
+variable "aca_location" {
+  type        = string
+  default     = "australiaeast"
+  description = "Region for the Container Apps Environment (australiacentral does not support Container Apps)."
+}
+
 variable "use_existing_resource_group" {
   type        = bool
   default     = true
@@ -82,12 +88,12 @@ variable "aca_schedule_stop" {
 
 variable "aca_schedule_timezone" {
   type    = string
-  default = "Australia/Darwin"
+  default = "Australia/Sydney"
 }
 
 variable "aca_schedule_utc_offset" {
   type    = string
-  default = "+09:30"
+  default = "+10:00"
 }
 
 variable "aca_scheduled_min_replicas" {

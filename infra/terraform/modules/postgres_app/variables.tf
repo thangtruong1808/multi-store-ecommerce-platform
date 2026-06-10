@@ -47,7 +47,7 @@ variable "max_replicas" {
 
 variable "cpu" {
   type    = number
-  default = 0.25
+  default = 0.5
 }
 
 variable "memory" {

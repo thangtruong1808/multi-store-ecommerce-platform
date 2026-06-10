@@ -16,9 +16,13 @@ locals {
     stop_apps           = local.stop_apps
   })
 
+  # Azure requires start_time >= 5 minutes in the future at create time.
+  # Default anchor = 2 days from now; start_time changes are ignored after creation.
+  anchor_date = var.schedule_anchor_date != "" ? var.schedule_anchor_date : formatdate("YYYY-MM-DD", timeadd(timestamp(), "48h"))
+
   # azurerm_automation_schedule.start_time requires RFC3339 with offset (azurerm provider 4.x).
-  schedule_start = "${var.schedule_anchor_date}T${var.weekday_start_time}${var.schedule_utc_offset}"
-  schedule_stop  = "${var.schedule_anchor_date}T${var.weekday_stop_time}${var.schedule_utc_offset}"
+  schedule_start = "${local.anchor_date}T${var.weekday_start_time}${var.schedule_utc_offset}"
+  schedule_stop  = "${local.anchor_date}T${var.weekday_stop_time}${var.schedule_utc_offset}"
 }
 
 resource "azurerm_automation_account" "this" {
@@ -77,6 +81,10 @@ resource "azurerm_automation_schedule" "weekday_start" {
   week_days               = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
   start_time              = local.schedule_start
   description             = "Scale Container Apps up for showcase hours."
+
+  lifecycle {
+    ignore_changes = [start_time]
+  }
 }
 
 resource "azurerm_automation_schedule" "weekday_stop" {
@@ -90,6 +98,10 @@ resource "azurerm_automation_schedule" "weekday_stop" {
   week_days               = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
   start_time              = local.schedule_stop
   description             = "Scale Container Apps to zero outside showcase hours."
+
+  lifecycle {
+    ignore_changes = [start_time]
+  }
 }
 
 resource "azurerm_automation_job_schedule" "start" {

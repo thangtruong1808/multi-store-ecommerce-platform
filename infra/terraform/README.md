@@ -58,7 +58,7 @@ infra/terraform/
 
 | **max_replicas = 2** | Horizontal scale under load; extra replica cost only while it runs |
 
-| **Automation** Mon–Fri 10:00–17:00 Australia/Darwin (ACST) | Matches portfolio demo hours |
+| **Automation** Mon–Fri 10:00–17:00 Australia/Sydney (AEST) | Matches portfolio demo hours |
 
 | **Smaller CPU/RAM**, **10 GB** file share | Lower storage / compute |
 
@@ -198,7 +198,7 @@ az storage container create --account-name $SA -n tfstate
 Copy backend config (includes separate state **key** per environment):
 
 ```bash
-
+cd infra/terraform/environments/staging
 cp backend.hcl.example backend.hcl   # in staging/ (and shared/ if used)
 
 ```

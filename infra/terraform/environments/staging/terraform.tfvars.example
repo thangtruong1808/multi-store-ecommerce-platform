@@ -1,6 +1,6 @@
 # Copy to terraform.tfvars — do not commit terraform.tfvars (gitignored).
 #
-# Showcase cost profile: GHCR images, scale-to-zero, weekday 10:00–17:00 (Australia/Darwin).
+# Showcase cost profile: GHCR images, scale-to-zero, weekday 10:00–17:00 (Australia/Sydney).
 
 location                      = "australiacentral"
 resource_group_name           = "multi-store-ecommerce-rg"
@@ -21,15 +21,15 @@ aca_max_replicas            = 2
 enable_aca_weekday_schedule = true
 aca_schedule_start          = "10:00:00"
 aca_schedule_stop           = "17:00:00"
-aca_schedule_timezone       = "Australia/Darwin"
-aca_schedule_utc_offset     = "+09:30"
+aca_schedule_timezone       = "Australia/Sydney"
+aca_schedule_utc_offset     = "+10:00"
 postgres_file_share_quota_gb = 10
 
 postgres_password = "change-me-strong-password"
 
 # Set after first terraform apply using output web_url, or use placeholder and update after deploy
-cors_allowed_origins = "https://web-xxxxx.australiacentral.azurecontainerapps.io"
-public_app_base_url  = "https://web-xxxxx.australiacentral.azurecontainerapps.io"
+cors_allowed_origins = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
+public_app_base_url  = "https://web-xxxxx.australiaeast.azurecontainerapps.io"
 
 jwt_secret = "change-me-use-a-long-random-secret-at-least-32-chars"
 
@@ -37,9 +37,16 @@ stripe_secret_key      = "sk_test_..."
 stripe_webhook_secret  = "whsec_..."
 stripe_publishable_key = "pk_test_..."
 
-azure_storage_enabled           = true
-azure_storage_connection_string = "DefaultEndpointsProtocol=https;AccountName=..."
-azure_storage_public_base_url   = "https://YOUR_ACCOUNT.blob.core.windows.net/product-photos"
+azure_storage_enabled = true
+
+# Terraform creates the product-photos account + container (delete any manual
+# account with the same name first — storage names are globally unique).
+create_photos_storage       = true
+photos_storage_account_name = "multistorephotos"
+
+# Only needed when create_photos_storage = false (externally managed blob):
+# azure_storage_connection_string = "DefaultEndpointsProtocol=https;AccountName=..."
+# azure_storage_public_base_url   = "https://YOUR_ACCOUNT.blob.core.windows.net/product-photos"
 
 create_blob_container = false
 
