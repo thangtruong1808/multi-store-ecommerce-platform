@@ -23,14 +23,17 @@ if [ ! -s "$pgdata/PG_VERSION" ]; then
   printf '%s\n' "$POSTGRES_PASSWORD" > "$pwfile"
   chown postgres:postgres "$pwfile"
 
-  if [ -n "${POSTGRES_DB:-}" ] && [ "$POSTGRES_DB" != "$POSTGRES_USER" ]; then
-    # initdb: -d is debug (not dbname); pass --dbname= as one quoted argument.
-    su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile" "--dbname=$POSTGRES_DB"
-  else
-    su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile"
-  fi
+  su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile"
 
   rm -f "$pwfile"
+
+  # Alpine initdb has no --dbname; create the app database on a temporary local cluster.
+  if [ -n "${POSTGRES_DB:-}" ] && [ "$POSTGRES_DB" != "$POSTGRES_USER" ]; then
+    echo "Creating database ${POSTGRES_DB} on temporary cluster..."
+    su-exec postgres pg_ctl -D "$tmp" -w start
+    su-exec postgres createdb -U "$POSTGRES_USER" "$POSTGRES_DB"
+    su-exec postgres pg_ctl -D "$tmp" -m fast -w stop
+  fi
 
   mkdir -p "$pgdata"
   su-exec postgres sh -c "cp -R \"$tmp\"/. \"$pgdata\"/"
