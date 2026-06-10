@@ -387,7 +387,8 @@ Update `deploy-staging.yml` or use a separate workflow to push to ACR.
 | 503 / timeout outside hours | Run `aca-start.sh` or wait until 10:00 Mon–Fri |
 
 | API unhealthy after deploy | Cold start ~1–3 min; deploy workflow waits and retries health |
-| Postgres crash / `Permission denied` on Azure File | Use **`multi-store-postgres`** GHCR image; module sets `PGDATA=/mnt/postgres-data`; `terraform apply` after module changes; clear file share after failed init |
+| Postgres crash / `Permission denied` on Azure File | Use **`multi-store-postgres`** GHCR image; `PGDATA=/mnt/postgres-data`; SMB `mount_options`: **uid=70**, **dir_mode=0700**; clear file share after failed init; `terraform apply` |
+| API health timeout / `no pg_hba.conf entry` | Redeploy latest **`multi-store-postgres`** image (entrypoint adds ACA `hostnossl` rule); restart postgres revision |
 
 | Automation runbook failed | Portal → Automation account → Job → logs; ensure Contributor on RG |
 

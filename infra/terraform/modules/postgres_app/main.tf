@@ -17,8 +17,8 @@ resource "azurerm_container_app" "postgres" {
       name          = "postgres-data"
       storage_type  = "AzureFile"
       storage_name  = var.storage_mount_name
-      # postgres user in official image is uid/gid 999; SMB mounts cannot chmod at runtime.
-      mount_options = "uid=999,gid=999,nobrl,mfsymlinks,cache=none,dir_mode=0750,file_mode=0750"
+      # postgres:16-alpine uid/gid 70; dir_mode 0700 required by Postgres (rejects 0777 on PGDATA).
+      mount_options = "uid=70,gid=70,nobrl,mfsymlinks,cache=none,dir_mode=0700,file_mode=0600"
     }
 
     container {

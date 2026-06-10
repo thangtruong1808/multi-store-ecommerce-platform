@@ -9,7 +9,19 @@ fi
 
 pgdata="${PGDATA:-/mnt/postgres-data}"
 
-# SMB mount uses uid=999; root cannot stat PGDATA — check and copy as postgres.
+# API connects from ACA internal IPs without TLS; default initdb pg_hba is local-only.
+ensure_aca_pg_hba() {
+  hba="$pgdata/pg_hba.conf"
+  if [ ! -f "$hba" ]; then
+    return 0
+  fi
+  if ! su-exec postgres grep -q 'aca-container-apps' "$hba" 2>/dev/null; then
+    echo "Allowing ACA internal TCP connections in pg_hba.conf..."
+    su-exec postgres sh -c "printf '%s\n' '' '# aca-container-apps (api -> postgres, no TLS inside env)' 'hostnossl all all 0.0.0.0/0 scram-sha-256' >> \"$hba\""
+  fi
+}
+
+# SMB mount uses uid=70 (postgres:16-alpine) with dir_mode=0700; check and copy as postgres.
 if ! su-exec postgres test -s "$pgdata/PG_VERSION"; then
   echo "Initializing PostgreSQL off-volume for Azure Files SMB compatibility..."
 
@@ -36,12 +48,14 @@ if ! su-exec postgres test -s "$pgdata/PG_VERSION"; then
     su-exec postgres pg_ctl -D "$tmp" -m fast -w stop
   fi
 
-  # Share is mounted at PGDATA (uid=999); copy cluster to mount root — no mkdir on image paths.
+  # Share is mounted at PGDATA (uid=70); copy cluster to mount root — no mkdir on image paths.
   su-exec postgres sh -c "cp -R \"$tmp\"/. \"$pgdata\"/"
   rm -rf "$tmp"
 
   echo "PostgreSQL cluster copied to $pgdata"
 fi
+
+ensure_aca_pg_hba
 
 # SMB/CIFS does not support fsync; disable to avoid runtime I/O errors on Azure Files.
 exec /usr/local/bin/docker-entrypoint.sh postgres \
