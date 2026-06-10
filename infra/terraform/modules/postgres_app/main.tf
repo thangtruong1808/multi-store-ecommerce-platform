@@ -42,15 +42,15 @@ resource "azurerm_container_app" "postgres" {
         value = var.postgres_db
       }
 
-      # PGDATA is a subdirectory on the share; mount parent so uid=999 can mkdir on SMB root.
+      # Dedicated mount path — /var/lib/postgresql/data conflicts with the image layer on ACA Azure Files.
       env {
         name  = "PGDATA"
-        value = "/var/lib/postgresql/data/pgdata"
+        value = "/mnt/postgres-data"
       }
 
       volume_mounts {
         name = "postgres-data"
-        path = "/var/lib/postgresql/data"
+        path = "/mnt/postgres-data"
       }
     }
   }

@@ -7,7 +7,7 @@ if [ "$1" != 'postgres' ]; then
   exec /usr/local/bin/docker-entrypoint.sh "$@"
 fi
 
-pgdata="${PGDATA:-/var/lib/postgresql/data}"
+pgdata="${PGDATA:-/mnt/postgres-data}"
 
 # SMB mount uses uid=999; root cannot stat PGDATA — check and copy as postgres.
 if ! su-exec postgres test -s "$pgdata/PG_VERSION"; then
@@ -36,8 +36,7 @@ if ! su-exec postgres test -s "$pgdata/PG_VERSION"; then
     su-exec postgres pg_ctl -D "$tmp" -m fast -w stop
   fi
 
-  # Share is mounted at /var/lib/postgresql/data (uid=999); create PGDATA subdir as postgres.
-  su-exec postgres mkdir -p "$pgdata"
+  # Share is mounted at PGDATA (uid=999); copy cluster to mount root — no mkdir on image paths.
   su-exec postgres sh -c "cp -R \"$tmp\"/. \"$pgdata\"/"
   rm -rf "$tmp"
 
