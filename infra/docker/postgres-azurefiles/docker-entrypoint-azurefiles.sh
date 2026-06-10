@@ -24,7 +24,8 @@ if [ ! -s "$pgdata/PG_VERSION" ]; then
   chown postgres:postgres "$pwfile"
 
   if [ -n "${POSTGRES_DB:-}" ] && [ "$POSTGRES_DB" != "$POSTGRES_USER" ]; then
-    su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile" -d "$POSTGRES_DB"
+    # initdb: -d is debug (not dbname); pass --dbname= as one quoted argument.
+    su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile" "--dbname=$POSTGRES_DB"
   else
     su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile"
   fi
