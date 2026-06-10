@@ -14,14 +14,16 @@ resource "azurerm_container_app" "postgres" {
     max_replicas = var.max_replicas
 
     volume {
-      name         = "postgres-data"
-      storage_type = "AzureFile"
-      storage_name = var.storage_mount_name
+      name          = "postgres-data"
+      storage_type  = "AzureFile"
+      storage_name  = var.storage_mount_name
+      # postgres user in official image is uid/gid 999; SMB mounts cannot chmod at runtime.
+      mount_options = "uid=999,gid=999,nobrl,mfsymlinks,cache=none,dir_mode=0750,file_mode=0750"
     }
 
     container {
       name   = "postgres"
-      image  = "docker.io/library/postgres:16-alpine"
+      image  = var.image
       cpu    = var.cpu
       memory = var.memory
 
@@ -40,9 +42,15 @@ resource "azurerm_container_app" "postgres" {
         value = var.postgres_db
       }
 
+      # Mount Azure File at PGDATA directly — postgres cannot mkdir/chmod on SMB mount roots.
+      env {
+        name  = "PGDATA"
+        value = "/var/lib/postgresql/data/pgdata"
+      }
+
       volume_mounts {
         name = "postgres-data"
-        path = "/var/lib/postgresql/data"
+        path = "/var/lib/postgresql/data/pgdata"
       }
     }
   }

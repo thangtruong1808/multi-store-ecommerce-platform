@@ -31,6 +31,11 @@ output "web_image" {
   value = local.web_image
 }
 
+output "postgres_image" {
+  value       = local.postgres_image
+  description = "Image reference used by the Postgres Container App (Azure Files compatible)."
+}
+
 output "showcase_hours" {
   value = var.enable_aca_weekday_schedule ? "${var.aca_schedule_start}-${var.aca_schedule_stop} Mon-Fri (${var.aca_schedule_timezone})" : "disabled — use scripts/aca-start.sh"
 }

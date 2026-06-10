@@ -11,11 +11,13 @@ locals {
     environment = var.environment
   })
 
-  ghcr_api_image = var.api_image_override != "" ? var.api_image_override : "ghcr.io/${var.ghcr_owner}/multi-store-api:${var.image_tag}"
-  ghcr_web_image = var.web_image_override != "" ? var.web_image_override : "ghcr.io/${var.ghcr_owner}/multi-store-web:${var.image_tag}"
+  ghcr_api_image      = var.api_image_override != "" ? var.api_image_override : "ghcr.io/${var.ghcr_owner}/multi-store-api:${var.image_tag}"
+  ghcr_web_image      = var.web_image_override != "" ? var.web_image_override : "ghcr.io/${var.ghcr_owner}/multi-store-web:${var.image_tag}"
+  ghcr_postgres_image = var.postgres_image_override != "" ? var.postgres_image_override : "ghcr.io/${var.ghcr_owner}/multi-store-postgres:${var.image_tag}"
 
-  api_image = var.use_acr ? "${data.azurerm_container_registry.shared[0].login_server}/multi-store-api:${var.image_tag}" : local.ghcr_api_image
-  web_image = var.use_acr ? "${data.azurerm_container_registry.shared[0].login_server}/multi-store-web:${var.image_tag}" : local.ghcr_web_image
+  api_image      = var.use_acr ? "${data.azurerm_container_registry.shared[0].login_server}/multi-store-api:${var.image_tag}" : local.ghcr_api_image
+  web_image      = var.use_acr ? "${data.azurerm_container_registry.shared[0].login_server}/multi-store-web:${var.image_tag}" : local.ghcr_web_image
+  postgres_image = local.ghcr_postgres_image
 
   acr_id           = var.use_acr ? data.azurerm_container_registry.shared[0].id : ""
   acr_login_server = var.use_acr ? data.azurerm_container_registry.shared[0].login_server : ""
@@ -135,9 +137,10 @@ module "postgres" {
   postgres_user                = var.postgres_user
   postgres_db                  = var.postgres_db
   postgres_password            = var.postgres_password
+  image                        = local.postgres_image
   environment_default_domain   = module.container_apps_environment.default_domain
   min_replicas                 = var.aca_min_replicas
-  max_replicas                 = var.aca_max_replicas
+  max_replicas                 = 1
   cpu                          = 0.5
   memory                       = "1Gi"
   tags                         = local.tags

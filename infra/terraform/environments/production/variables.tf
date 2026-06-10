@@ -55,6 +55,12 @@ variable "web_image_override" {
   default = ""
 }
 
+variable "postgres_image_override" {
+  type        = string
+  default     = ""
+  description = "Optional full image ref; overrides ghcr.io multi-store-postgres default."
+}
+
 variable "aca_min_replicas" {
   type    = number
   default = 1

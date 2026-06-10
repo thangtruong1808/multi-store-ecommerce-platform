@@ -21,3 +21,8 @@ output "web_fqdn" {
 output "container_apps_environment_id" {
   value = module.container_apps_environment.id
 }
+
+output "postgres_image" {
+  value       = local.postgres_image
+  description = "Image reference used by the Postgres Container App (Azure Files compatible)."
+}

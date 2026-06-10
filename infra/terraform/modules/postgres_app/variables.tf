@@ -1,3 +1,8 @@
+variable "image" {
+  type        = string
+  description = "Container image (use multi-store-postgres from GHCR for Azure Files mounts)."
+}
+
 variable "name" {
   type    = string
   default = "postgres"

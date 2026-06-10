@@ -238,7 +238,13 @@ docker push ghcr.io/thangtruong1808/multi-store-api:staging
 
 # same for multi-store-web with Vite build-args
 
+docker build -t ghcr.io/thangtruong1808/multi-store-postgres:staging ./infra/docker/postgres-azurefiles
+
+docker push ghcr.io/thangtruong1808/multi-store-postgres:staging
+
 ```
+
+Set GHCR packages **Public**: `multi-store-api`, `multi-store-web`, **`multi-store-postgres`** (ACA pulls without registry credentials).
 
 
 
@@ -376,11 +382,12 @@ Update `deploy-staging.yml` or use a separate workflow to push to ACR.
 
 |-------|-----|
 
-| Container App ImagePullBackOff | GHCR package must be **public**, or add registry credentials to the app |
+| Container App ImagePullBackOff | GHCR packages must be **public** (`multi-store-api`, `multi-store-web`, `multi-store-postgres`), or add registry credentials |
 
 | 503 / timeout outside hours | Run `aca-start.sh` or wait until 10:00 Mon–Fri |
 
 | API unhealthy after deploy | Cold start ~1–3 min; deploy workflow waits and retries health |
+| Postgres crash / `Permission denied` on Azure File | Use **`multi-store-postgres`** GHCR image (init off-volume); module sets `PGDATA` + `mount_options`; clear file share after failed init |
 
 | Automation runbook failed | Portal → Automation account → Job → logs; ensure Contributor on RG |
 
