@@ -9,7 +9,8 @@ fi
 
 pgdata="${PGDATA:-/var/lib/postgresql/data}"
 
-if [ ! -s "$pgdata/PG_VERSION" ]; then
+# SMB mount uses uid=999; root cannot stat PGDATA — check and copy as postgres.
+if ! su-exec postgres test -s "$pgdata/PG_VERSION"; then
   echo "Initializing PostgreSQL off-volume for Azure Files SMB compatibility..."
 
   tmp="/tmp/pginit.$$"
@@ -35,7 +36,7 @@ if [ ! -s "$pgdata/PG_VERSION" ]; then
     su-exec postgres pg_ctl -D "$tmp" -m fast -w stop
   fi
 
-  mkdir -p "$pgdata"
+  # PGDATA is the ACA volume mount point; do not mkdir as root (permission denied on uid=999 mount).
   su-exec postgres sh -c "cp -R \"$tmp\"/. \"$pgdata\"/"
   rm -rf "$tmp"
 

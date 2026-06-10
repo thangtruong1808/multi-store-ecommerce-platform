@@ -6,7 +6,7 @@ This image:
 
 1. Runs `initdb` on `/tmp` (local disk)
 2. If `POSTGRES_DB` differs from `POSTGRES_USER`, starts that cluster briefly and runs `createdb` (Alpine `initdb` has no `--dbname`)
-3. Copies the cluster to `PGDATA` on the Azure File mount
+3. Copies the cluster to `PGDATA` on the Azure File mount (as `postgres` — root cannot access `uid=999` SMB mounts)
 4. Starts Postgres with `fsync=off` (required for SMB runtime)
 
 Published as `ghcr.io/<owner>/multi-store-postgres:<tag>` by deploy workflows.
