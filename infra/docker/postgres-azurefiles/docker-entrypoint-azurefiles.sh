@@ -23,16 +23,11 @@ if [ ! -s "$pgdata/PG_VERSION" ]; then
   printf '%s\n' "$POSTGRES_PASSWORD" > "$pwfile"
   chown postgres:postgres "$pwfile"
 
-  initdb_args=""
-  if [ -n "${POSTGRES_INITDB_ARGS:-}" ]; then
-    initdb_args="$POSTGRES_INITDB_ARGS"
-  fi
   if [ -n "${POSTGRES_DB:-}" ] && [ "$POSTGRES_DB" != "$POSTGRES_USER" ]; then
-    initdb_args="$initdb_args --dbname=$POSTGRES_DB"
+    su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile" --dbname "$POSTGRES_DB"
+  else
+    su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile"
   fi
-
-  # shellcheck disable=SC2086
-  su-exec postgres initdb -D "$tmp" --username="$POSTGRES_USER" --pwfile="$pwfile" $initdb_args
 
   rm -f "$pwfile"
 
