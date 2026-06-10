@@ -42,7 +42,7 @@ resource "azurerm_container_app" "postgres" {
         value = var.postgres_db
       }
 
-      # Mount Azure File at PGDATA directly — postgres cannot mkdir/chmod on SMB mount roots.
+      # PGDATA is a subdirectory on the share; mount parent so uid=999 can mkdir on SMB root.
       env {
         name  = "PGDATA"
         value = "/var/lib/postgresql/data/pgdata"
@@ -50,7 +50,7 @@ resource "azurerm_container_app" "postgres" {
 
       volume_mounts {
         name = "postgres-data"
-        path = "/var/lib/postgresql/data/pgdata"
+        path = "/var/lib/postgresql/data"
       }
     }
   }

@@ -36,7 +36,8 @@ if ! su-exec postgres test -s "$pgdata/PG_VERSION"; then
     su-exec postgres pg_ctl -D "$tmp" -m fast -w stop
   fi
 
-  # PGDATA is the ACA volume mount point; do not mkdir as root (permission denied on uid=999 mount).
+  # Share is mounted at /var/lib/postgresql/data (uid=999); create PGDATA subdir as postgres.
+  su-exec postgres mkdir -p "$pgdata"
   su-exec postgres sh -c "cp -R \"$tmp\"/. \"$pgdata\"/"
   rm -rf "$tmp"
 

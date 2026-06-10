@@ -76,7 +76,7 @@ jobs:
           az containerapp update \
             --name postgres \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --image ${POSTGRES_IMAGE}:${IMAGE_TAG}
+            --image ${POSTGRES_IMAGE}:${SHA_TAG}
 
       - name: Update API container app
         run: |
