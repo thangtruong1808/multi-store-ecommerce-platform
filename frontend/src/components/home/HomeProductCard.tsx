@@ -44,6 +44,7 @@ export function HomeProductCard({ product }: HomeProductCardProps) {
           aspectClassName="aspect-[5/3]"
           containerClassName="bg-transparent"
           showPlaceholderLabel={false}
+          useComingSoonFallback
         />
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-4">

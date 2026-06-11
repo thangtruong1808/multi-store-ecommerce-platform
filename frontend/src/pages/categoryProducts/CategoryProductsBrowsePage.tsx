@@ -333,6 +333,7 @@ export function CategoryProductsBySlugPage() {
                           aspectClassName="aspect-[4/3]"
                           containerClassName="bg-slate-100"
                           showPlaceholderLabel={false}
+                          useComingSoonFallback
                         />
                       </div>
                       <article className="flex min-h-0 flex-1 flex-col p-4">

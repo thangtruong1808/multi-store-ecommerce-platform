@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FiImage } from 'react-icons/fi'
 
+import productComingSoonImageUrl from '../../assets/CommingSoon.jpg'
 import { buildProductMediaUrl, getConfiguredProductMediaBaseUrl } from '../../utils/productMediaUrl'
 import { isUploadedProductMediaKey } from '../../utils/productMediaKeys'
+
+export { productComingSoonImageUrl }
 
 type StorefrontProductPhotoProps = {
   imageS3Key?: string | null
@@ -12,6 +15,8 @@ type StorefrontProductPhotoProps = {
   placeholderLabel?: string
   showPlaceholderLabel?: boolean
   containerClassName?: string
+  /** When true, show bundled CommingSoon.jpg when the product has no photo or the remote image fails. */
+  useComingSoonFallback?: boolean
 }
 
 export function StorefrontProductPhoto({
@@ -22,9 +27,10 @@ export function StorefrontProductPhoto({
   placeholderLabel = 'Photo soon',
   showPlaceholderLabel = true,
   containerClassName = 'bg-slate-100',
+  useComingSoonFallback = false,
 }: StorefrontProductPhotoProps) {
   const baseUrl = getConfiguredProductMediaBaseUrl()
-  const src = useMemo(() => {
+  const remoteSrc = useMemo(() => {
     const key = imageS3Key?.trim()
     if (!key || !baseUrl) return null
     return buildProductMediaUrl(key, baseUrl)
@@ -36,18 +42,24 @@ export function StorefrontProductPhoto({
     setFailed(false)
   }, [imageS3Key])
 
-  const showImage = Boolean(src) && !failed
+  const displaySrc =
+    remoteSrc && !failed ? remoteSrc : useComingSoonFallback ? productComingSoonImageUrl : null
+  const showImage = Boolean(displaySrc)
+  const isComingSoonFallback = showImage && displaySrc === productComingSoonImageUrl
 
   return (
     <div className={`relative w-full overflow-hidden ${containerClassName} ${aspectClassName}`}>
       {showImage ? (
         <img
-          src={src!}
-          alt={alt}
+          src={displaySrc!}
+          alt={isComingSoonFallback ? `${alt} — photo coming soon` : alt}
           className="h-full w-full object-cover"
           loading="lazy"
           decoding="async"
-          onError={() => setFailed(true)}
+          onError={() => {
+            if (displaySrc === productComingSoonImageUrl) return
+            setFailed(true)
+          }}
         />
       ) : (
         <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-slate-400">

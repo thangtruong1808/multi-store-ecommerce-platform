@@ -35,6 +35,7 @@ export function PublicProductDetailGallery({ imageS3Keys, productName }: PublicP
               iconClassName="h-14 w-14 sm:h-16 sm:w-16"
               placeholderLabel="Photo coming soon"
               containerClassName="bg-slate-100"
+              useComingSoonFallback
             />
             <span
               className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/40 to-transparent px-3 py-2 text-left text-xs font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100"
@@ -51,6 +52,7 @@ export function PublicProductDetailGallery({ imageS3Keys, productName }: PublicP
             iconClassName="h-14 w-14 sm:h-16 sm:w-16"
             placeholderLabel="Photo coming soon"
             containerClassName="bg-slate-100"
+            useComingSoonFallback
           />
         )}
       </div>
