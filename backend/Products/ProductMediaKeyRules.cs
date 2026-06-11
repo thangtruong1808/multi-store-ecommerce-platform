@@ -49,6 +49,9 @@ public static partial class ProductMediaKeyRules
         return false;
     }
 
+    public static bool IsLegacySeedPlaceholderKey(string blobKey) =>
+        LegacySeedKeyRegex().IsMatch(blobKey);
+
     public static List<string> ValidateKeysForUpsert(
         IReadOnlyList<string> keys,
         Guid? actorUserId,
@@ -60,6 +63,11 @@ public static partial class ProductMediaKeyRules
         var valid = new List<string>();
         foreach (var key in keys)
         {
+            if (IsLegacySeedPlaceholderKey(key))
+            {
+                continue;
+            }
+
             if (!CanUseOnUpsert(key, actorUserId, productId, isCreate))
             {
                 errorMessage = "One or more image keys are invalid or not allowed for this product.";
@@ -74,4 +82,7 @@ public static partial class ProductMediaKeyRules
 
     [GeneratedRegex(@"^products/(staging/[0-9a-fA-F\-]{36}/|[0-9a-fA-F\-]{36}/)[0-9a-fA-F]{32}\.webp$", RegexOptions.CultureInvariant)]
     private static partial Regex BlobKeyFormatRegex();
+
+    [GeneratedRegex(@"^products/[a-z0-9-]+/0[1-4]\.jpg$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LegacySeedKeyRegex();
 }

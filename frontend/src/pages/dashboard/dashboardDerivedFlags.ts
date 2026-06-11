@@ -1,3 +1,4 @@
+import { persistableProductImageKeys } from '../../utils/productMediaKeys'
 import type {
   CategoryFormState,
   CategoryItem,
@@ -99,7 +100,8 @@ export function computeHasProductChanges(editingProduct: ProductDetail | null, p
     productForm.isClearance !== Boolean(editingProduct.isClearance) ||
     productForm.isRefurbished !== Boolean(editingProduct.isRefurbished) ||
     productForm.level3Id !== (editingProduct.categoryId ?? 'none') ||
-    productForm.imageS3Keys.filter((item) => item.trim().length > 0).join('|') !== editingProduct.imageS3Keys.join('|') ||
+    persistableProductImageKeys(productForm.imageS3Keys).join('|') !==
+      persistableProductImageKeys(editingProduct.imageS3Keys).join('|') ||
     productForm.videoUrls.filter((item) => item.trim().length > 0).join('|') !== editingProduct.videoUrls.join('|') ||
     prevStores !== nextStores ||
     normalizedStockSignature(productForm) !== baselineStockSignature(editingProduct)

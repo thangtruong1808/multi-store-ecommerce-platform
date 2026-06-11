@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { FiImage } from 'react-icons/fi'
 
 import { buildProductMediaUrl, getConfiguredProductMediaBaseUrl } from '../../utils/productMediaUrl'
+import { isUploadedProductMediaKey } from '../../utils/productMediaKeys'
 
 type StorefrontProductPhotoProps = {
   imageS3Key?: string | null
@@ -67,7 +68,7 @@ export function resolvePrimaryImageS3Key(
   imageS3Keys?: string[] | null,
 ): string | null {
   const primary = primaryImageS3Key?.trim()
-  if (primary) return primary
-  const first = imageS3Keys?.find((k) => k.trim().length > 0)?.trim()
+  if (primary && isUploadedProductMediaKey(primary)) return primary
+  const first = imageS3Keys?.map((k) => k.trim()).find(isUploadedProductMediaKey)
   return first ?? null
 }

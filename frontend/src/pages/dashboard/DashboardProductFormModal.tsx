@@ -106,10 +106,8 @@ export function DashboardProductFormModal({
     void handleProductImageFile(index, file)
   }
 
-  const imageSlots =
-    productForm.imageS3Keys.length > 0
-      ? productForm.imageS3Keys
-      : []
+  const imageSlots = productForm.imageS3Keys.length > 0 ? productForm.imageS3Keys : ['']
+  const filledImageCount = productForm.imageS3Keys.filter((key) => key.trim().length > 0).length
 
   return (
     <>
@@ -540,7 +538,7 @@ export function DashboardProductFormModal({
                 </div>
                 <button
                   type="button"
-                  disabled={isFormBusy}
+                  disabled={isFormBusy || filledImageCount === 0 || productForm.imageS3Keys.length >= 4}
                   onClick={() =>
                     setProductForm((prev) => ({ ...prev, imageS3Keys: [...prev.imageS3Keys, ''].slice(0, 4) }))
                   }
@@ -623,20 +621,6 @@ export function DashboardProductFormModal({
                     </div>
                   )
                 })}
-                {imageSlots.length === 0 && (
-                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-                    <p className="text-xs text-slate-500">No photos yet. Add up to 4 product images.</p>
-                    <button
-                      type="button"
-                      disabled={isFormBusy}
-                      onClick={() => setProductForm((prev) => ({ ...prev, imageS3Keys: [''] }))}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                      Add first photo
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
 

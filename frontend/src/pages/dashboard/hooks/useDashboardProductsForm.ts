@@ -8,6 +8,7 @@ import { deleteProductImage, uploadProductImage } from '../products/productMedia
 import { executeProductUpsert } from '../products/executeProductUpsert'
 import { fetchWithAutoRefresh } from '../fetchDashboardApi'
 import { isStagingBlobKey, loadProductMediaPublicBaseUrl } from '../../../utils/productMediaUrl'
+import { normalizeProductImageKeysForForm } from '../../../utils/productMediaKeys'
 import { computeHasProductChanges } from '../dashboardDerivedFlags'
 import type {
   CategoryParentOption,
@@ -62,7 +63,7 @@ export function useDashboardProductsForm(
     level1Id: 'none',
     level2Id: 'none',
     level3Id: 'none',
-    imageS3Keys: [],
+    imageS3Keys: [''],
     videoUrls: [],
     storeIds: [],
     storeQuantities: {},
@@ -129,7 +130,7 @@ export function useDashboardProductsForm(
         level1Id: 'none',
         level2Id: 'none',
         level3Id: 'none',
-        imageS3Keys: [],
+        imageS3Keys: [''],
         videoUrls: [],
         storeIds: [],
         storeQuantities: {},
@@ -159,7 +160,7 @@ export function useDashboardProductsForm(
       level1Id: 'none',
       level2Id: 'none',
       level3Id: 'none',
-      imageS3Keys: [],
+      imageS3Keys: [''],
       videoUrls: [],
       storeIds: [],
       storeQuantities: {},
@@ -189,7 +190,7 @@ export function useDashboardProductsForm(
       level1Id: 'none',
       level2Id: 'none',
       level3Id: 'none',
-      imageS3Keys: [],
+      imageS3Keys: [''],
       videoUrls: [],
       storeIds: defaultStoreIds,
       storeQuantities: storeQuantitiesForIds(defaultStoreIds, null),
@@ -260,7 +261,7 @@ export function useDashboardProductsForm(
         level1Id: level1?.id ?? 'none',
         level2Id: level2?.id ?? 'none',
         level3Id: level3?.id ?? 'none',
-        imageS3Keys: detail.imageS3Keys,
+        imageS3Keys: normalizeProductImageKeysForForm(detail.imageS3Keys),
         videoUrls: detail.videoUrls,
         storeIds: ids,
         storeQuantities: storeQuantitiesForIds(ids, detail),
@@ -312,10 +313,13 @@ export function useDashboardProductsForm(
       }
     }
 
-    setProductForm((prev) => ({
-      ...prev,
-      imageS3Keys: prev.imageS3Keys.filter((_, idx) => idx !== index),
-    }))
+    setProductForm((prev) => {
+      const remaining = prev.imageS3Keys.filter((_, idx) => idx !== index)
+      return {
+        ...prev,
+        imageS3Keys: remaining.length === 0 ? [''] : remaining,
+      }
+    })
     setUploadingImageIndexes((prev) => {
       const next: Record<number, boolean> = {}
       Object.entries(prev).forEach(([idx, value]) => {

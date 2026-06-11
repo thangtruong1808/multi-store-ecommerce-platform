@@ -51,4 +51,27 @@ public class ProductMediaKeyRulesTests
         result.Should().BeEmpty();
         error.Should().NotBeNullOrWhiteSpace();
     }
+
+    [Fact]
+    public void IsLegacySeedPlaceholderKey_matches_seed_jpg_paths()
+    {
+        ProductMediaKeyRules.IsLegacySeedPlaceholderKey("products/my-sku-01/01.jpg").Should().BeTrue();
+        ProductMediaKeyRules.IsLegacySeedPlaceholderKey("products/my-sku-01/04.jpg").Should().BeTrue();
+        ProductMediaKeyRules.IsLegacySeedPlaceholderKey(ProductMediaKeyRules.BuildStagingKey(UserId)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ValidateKeysForUpsert_drops_legacy_seed_placeholders()
+    {
+        var staging = ProductMediaKeyRules.BuildStagingKey(UserId);
+        var result = ProductMediaKeyRules.ValidateKeysForUpsert(
+            [staging, "products/my-sku-01/01.jpg", "products/my-sku-01/02.jpg"],
+            UserId,
+            ProductId,
+            isCreate: false,
+            out var error);
+
+        result.Should().Equal([staging]);
+        error.Should().BeNull();
+    }
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { displayableProductImageKeys } from '../../../utils/productMediaKeys'
 import { StorefrontProductPhoto } from '../../../components/product/StorefrontProductPhoto'
 import { buildProductMediaUrl, getConfiguredProductMediaBaseUrl } from '../../../utils/productMediaUrl'
 import { PublicProductDetailLightbox } from './PublicProductDetailLightbox'
@@ -10,7 +11,7 @@ type PublicProductDetailGalleryProps = {
 }
 
 export function PublicProductDetailGallery({ imageS3Keys, productName }: PublicProductDetailGalleryProps) {
-  const keys = imageS3Keys.map((k) => k.trim()).filter((k) => k.length > 0)
+  const keys = displayableProductImageKeys(imageS3Keys)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const selectedKey = keys[selectedIndex] ?? null

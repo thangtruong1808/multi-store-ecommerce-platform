@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 
 import { API_BASE_URL } from '../../../features/auth/authConstants'
 import { fetchWithAutoRefresh } from '../fetchDashboardApi'
+import { persistableProductImageKeys } from '../../../utils/productMediaKeys'
 import type { CategoryParentOption, ProductDetail, ProductFormState, ProductsResponse } from '../dashboardTypes'
 
 function formatProductSaveError(payload: unknown, status: number): string {
@@ -78,7 +79,7 @@ export async function executeProductUpsert(opts: UpsertOpts): Promise<void> {
     categoryId: productForm.level3Id,
     isClearance: productForm.isClearance,
     isRefurbished: productForm.isRefurbished,
-    imageS3Keys: productForm.imageS3Keys.map((item) => item.trim()).filter((item) => item.length > 0),
+    imageS3Keys: persistableProductImageKeys(productForm.imageS3Keys),
     videoUrls: productForm.videoUrls.map((item) => item.trim()).filter((item) => item.length > 0),
     storeIds: productForm.storeIds,
     storeStock,
