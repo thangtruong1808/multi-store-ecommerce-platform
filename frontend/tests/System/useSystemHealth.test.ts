@@ -24,10 +24,11 @@ describe('System / useSystemHealth', () => {
     expect(result.current.message).toBeNull()
   })
 
-  it('sets down status and message when health fails', async () => {
+  it('sets down status with maintenance reason when health reports maintenance', async () => {
     vi.mocked(healthApi.fetchSystemHealth).mockResolvedValue({
       ok: false,
-      message: 'We are currently under maintenance. Please come back later.',
+      reason: 'maintenance',
+      message: 'We are updating the store and will be back shortly.',
     })
 
     const { result } = renderHook(() => useSystemHealth())
@@ -35,12 +36,29 @@ describe('System / useSystemHealth', () => {
     await waitFor(() => {
       expect(result.current.status).toBe('down')
     })
-    expect(result.current.message).toContain('maintenance')
+    expect(result.current.reason).toBe('maintenance')
+    expect(result.current.message).toContain('updating')
+  })
+
+  it('sets waking reason when services are still starting', async () => {
+    vi.mocked(healthApi.fetchSystemHealth).mockResolvedValue({
+      ok: false,
+      reason: 'waking',
+      message: 'Services are still starting. Please wait a moment.',
+    })
+
+    const { result } = renderHook(() => useSystemHealth())
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('down')
+    })
+    expect(result.current.reason).toBe('waking')
   })
 
   it('exposes retry that re-runs health check', async () => {
     vi.mocked(healthApi.fetchSystemHealth).mockResolvedValue({
       ok: false,
+      reason: 'waking',
       message: 'Unavailable',
     })
 

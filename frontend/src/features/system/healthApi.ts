@@ -1,10 +1,17 @@
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5080'
-const HEALTH_TIMEOUT_MS = 8_000
+/** Cold start on Azure Container Apps can exceed 8s; keep users on loading UI longer. */
+export const HEALTH_TIMEOUT_MS = 90_000
 
 export type HealthPayload = {
   status?: string
   message?: string
 }
+
+export type HealthFailureReason = 'maintenance' | 'waking'
+
+export type SystemHealthResult =
+  | { ok: true }
+  | { ok: false; reason: HealthFailureReason; message: string }
 
 async function fetchHealthOnce(url: string, signal: AbortSignal): Promise<Response> {
   return fetch(url, {
@@ -15,7 +22,7 @@ async function fetchHealthOnce(url: string, signal: AbortSignal): Promise<Respon
   })
 }
 
-export async function fetchSystemHealth(): Promise<{ ok: true } | { ok: false; message: string }> {
+export async function fetchSystemHealth(): Promise<SystemHealthResult> {
   const controller = new AbortController()
   const timeoutId = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS)
 
@@ -37,9 +44,10 @@ export async function fetchSystemHealth(): Promise<{ ok: true } | { ok: false; m
           }
           return {
             ok: false,
+            reason: 'maintenance',
             message:
               body?.message?.trim() ||
-              'We are currently under maintenance. Please come back later.',
+              'We are updating the store and will be back shortly.',
           }
         }
 
@@ -52,33 +60,46 @@ export async function fetchSystemHealth(): Promise<{ ok: true } | { ok: false; m
         try {
           body = (await response.json()) as HealthPayload
         } catch {
-          return { ok: false, message: 'Could not reach the store services. Please try again shortly.' }
+          return {
+            ok: false,
+            reason: 'waking',
+            message: 'Services are still starting. Please wait a moment.',
+          }
         }
 
         if (body?.status === 'ok') {
           return { ok: true }
         }
 
+        const isMaintenance =
+          body?.status === 'maintenance' ||
+          Boolean(body?.message?.toLowerCase().includes('maintenance'))
+
         return {
           ok: false,
+          reason: isMaintenance ? 'maintenance' : 'waking',
           message:
             body?.message?.trim() ||
-            'We are currently under maintenance. Please come back later.',
+            (isMaintenance
+              ? 'We are updating the store and will be back shortly.'
+              : 'Services are still starting. Please wait a moment.'),
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') {
           return {
             ok: false,
-            message: 'The store is taking too long to respond. Please try again in a few minutes.',
+            reason: 'waking',
+            message: 'Services are still starting. Please wait a moment.',
           }
         }
-        lastError = 'Could not connect to the store. Please check your connection and try again.'
+        lastError = 'Could not connect yet while services are starting.'
       }
     }
 
     return {
       ok: false,
-      message: lastError ?? 'Could not connect to the store. Please try again shortly.',
+      reason: 'waking',
+      message: lastError ?? 'Services are still starting. Please wait a moment.',
     }
   } finally {
     window.clearTimeout(timeoutId)

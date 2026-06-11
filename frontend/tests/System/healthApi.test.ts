@@ -20,12 +20,12 @@ describe('System / healthApi', () => {
     expect(result).toEqual({ ok: true })
   })
 
-  it('returns maintenance message on 503', async () => {
+  it('returns maintenance reason on 503', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           status: 'maintenance',
-          message: 'We are currently under maintenance. Please come back later.',
+          message: 'We are updating the store and will be back shortly.',
         }),
         { status: 503 },
       ),
@@ -34,17 +34,19 @@ describe('System / healthApi', () => {
     const result = await fetchSystemHealth()
     expect(result).toEqual({
       ok: false,
-      message: 'We are currently under maintenance. Please come back later.',
+      reason: 'maintenance',
+      message: 'We are updating the store and will be back shortly.',
     })
   })
 
-  it('returns connection error when fetch throws', async () => {
+  it('returns waking reason when fetch throws', async () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error('network down'))
 
     const result = await fetchSystemHealth()
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.message).toContain('Could not connect')
+      expect(result.reason).toBe('waking')
+      expect(result.message).toContain('starting')
     }
   })
 

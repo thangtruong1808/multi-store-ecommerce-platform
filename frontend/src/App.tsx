@@ -109,14 +109,21 @@ function AppRoutes() {
 }
 
 function App() {
-  const { status, message, isRetrying, retry } = useSystemHealth()
+  const { status, message, reason, isRetrying, retry } = useSystemHealth()
 
   if (status === 'checking') {
     return <SystemHealthLoadingPage />
   }
 
   if (status === 'down') {
-    return <MaintenancePage message={message} onRetry={retry} isRetrying={isRetrying} />
+    return (
+      <MaintenancePage
+        reason={reason}
+        message={message}
+        onRetry={retry}
+        isRetrying={isRetrying}
+      />
+    )
   }
 
   return <AppRoutes />
