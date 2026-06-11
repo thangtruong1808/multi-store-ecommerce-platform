@@ -278,7 +278,6 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role, avatarS
           onToggleUserMenu={() => setIsUserMenuOpen((prev) => !prev)}
           onCloseUserMenu={() => setIsUserMenuOpen(false)}
           isSessionLoading={isUserSessionLoading}
-          isAvatarBusy={isUserSessionLoading}
           isSigningOut={isSigningOut}
           onSignOut={handleSignOut}
         />
@@ -302,7 +301,6 @@ function Navbar({ isAuthenticated, userEmail, firstName, lastName, role, avatarS
             onToggleUserMenu={() => setIsUserMenuOpen((prev) => !prev)}
             onCloseUserMenu={() => setIsUserMenuOpen(false)}
             isSessionLoading={isUserSessionLoading}
-            isAvatarBusy={isUserSessionLoading}
             isSigningOut={isSigningOut}
             onSignOut={handleSignOut}
           />

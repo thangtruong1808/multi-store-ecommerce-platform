@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
 import { API_BASE_URL } from '../../../features/auth/authConstants'
@@ -8,6 +9,7 @@ export function useDashboardProductsList(
   activeFeature: DashboardFeatureKey,
   page: number,
   pageSize: number,
+  setPage: Dispatch<SetStateAction<number>>,
   dashboardApiReady: boolean,
 ) {
   const [productsState, setProductsState] = useState<ProductsResponse>({
@@ -25,6 +27,26 @@ export function useDashboardProductsList(
   const [productSearchInput, setProductSearchInput] = useState('')
   const [productCategoriesTree, setProductCategoriesTree] = useState<CategoryParentOption[]>([])
   const [isProductCategoriesLoading, setIsProductCategoriesLoading] = useState(false)
+  const [productsScopeWarning, setProductsScopeWarning] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (activeFeature !== 'products') return
+    setPage(1)
+  }, [activeFeature, productFilterStatus, productFilterCategoryId, productSearchText, setPage])
+
+  useEffect(() => {
+    if (activeFeature !== 'products' || isProductCategoriesLoading) return
+    if (productFilterCategoryId === 'all') return
+    const leafIds = new Set(productCategoriesTree.filter((item) => item.level === 3).map((item) => item.id))
+    if (leafIds.size > 0 && !leafIds.has(productFilterCategoryId)) {
+      setProductFilterCategoryId('all')
+    }
+  }, [
+    activeFeature,
+    isProductCategoriesLoading,
+    productCategoriesTree,
+    productFilterCategoryId,
+  ])
 
   useEffect(() => {
     if (activeFeature !== 'products') return
@@ -51,13 +73,20 @@ export function useDashboardProductsList(
         })
         if (!response.ok) throw new Error(`Unable to load products (${response.status})`)
         const payload = (await response.json()) as ProductsResponse
+        const totalPages = Math.max(1, payload.totalPages ?? 1)
+        if (isMounted && page > totalPages) {
+          setPage(totalPages)
+          return
+        }
         if (isMounted) {
+          setProductsScopeWarning(payload.scopeWarning?.trim() || null)
           setProductsState({
             items: payload.items ?? [],
             page: payload.page ?? page,
             pageSize: payload.pageSize ?? pageSize,
             totalItems: payload.totalItems ?? 0,
-            totalPages: payload.totalPages ?? 1,
+            totalPages,
+            scopeWarning: payload.scopeWarning ?? null,
           })
         }
       } catch (error) {
@@ -78,6 +107,7 @@ export function useDashboardProductsList(
     productFilterStatus,
     productFilterCategoryId,
     productSearchText,
+    setPage,
   ])
 
   useEffect(() => {
@@ -124,5 +154,6 @@ export function useDashboardProductsList(
     setProductSearchInput,
     productCategoriesTree,
     isProductCategoriesLoading,
+    productsScopeWarning,
   }
 }

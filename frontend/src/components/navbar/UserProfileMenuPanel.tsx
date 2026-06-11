@@ -66,7 +66,7 @@ function ProfileAvatarTile({
 }: ProfileAvatarTileProps) {
   const content = (
     <>
-      <span className="flex items-center justify-center rounded-md bg-white p-0.5 shadow-sm ring-1 ring-slate-200/80">
+      <span className="flex shrink-0 items-center justify-center rounded-md bg-white p-0.5 shadow-sm ring-1 ring-slate-200/80">
         <UserAvatarCircle
           imageUrl={avatarImageUrl}
           initials={initials}
@@ -74,7 +74,7 @@ function ProfileAvatarTile({
           sizeClassName="h-14 w-14 sm:h-16 sm:w-16"
           roundedClassName="rounded-md"
           textClassName="text-sm font-semibold sm:text-base"
-          ariaLabel=""
+          ariaLabel="Profile"
         />
       </span>
       <span className={MENU_TILE_LABEL}>{label}</span>
@@ -170,7 +170,7 @@ export function UserProfileMenuPanel({
 
   const isPanelBusy = isSessionLoading
   const isActionsDisabled = isSessionLoading || isSigningOut
-  const isAvatarLoading = isSessionLoading || isAvatarBusy
+  const isAvatarLoading = isAvatarBusy && !isPanelBusy
 
   return (
     <div

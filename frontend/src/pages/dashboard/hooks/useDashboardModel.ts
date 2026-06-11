@@ -65,6 +65,7 @@ export function useDashboardModel() {
     activeFeature,
     page,
     pageSize,
+    setPage,
     chrome.setInlineStatusMessage,
     chrome.setInlineStatusType,
     dashboardApiReady,

@@ -118,6 +118,7 @@ export type ProductsResponse = {
   pageSize: number
   totalItems: number
   totalPages: number
+  scopeWarning?: string | null
 }
 
 export type ProductFormState = {

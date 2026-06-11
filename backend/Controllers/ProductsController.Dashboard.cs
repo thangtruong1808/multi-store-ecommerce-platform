@@ -53,7 +53,8 @@ public partial class ProductsController
                     page = safePage,
                     pageSize = safePageSize,
                     totalItems = 0,
-                    totalPages = 1
+                    totalPages = 1,
+                    scopeWarning = "Your account is not assigned to any store. An admin must link you to stores in Dashboard → Users → Edit → Store locations, or run database/seed/backfill-store-staff.sql after seeding demo stores."
                 });
             }
 

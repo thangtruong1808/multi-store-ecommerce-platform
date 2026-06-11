@@ -28,7 +28,7 @@ export function UserAvatarCircle({
   ariaLabel,
 }: UserAvatarCircleProps) {
   const imgRef = useRef<HTMLImageElement | null>(null)
-  const [isImageLoading, setIsImageLoading] = useState(false)
+  const [isImageLoading, setIsImageLoading] = useState(() => Boolean(imageUrl?.trim()))
   const [imageFailed, setImageFailed] = useState(false)
 
   const applyImageStatus = useCallback((img: HTMLImageElement | null) => {
@@ -55,7 +55,6 @@ export function UserAvatarCircle({
       return
     }
 
-    setIsImageLoading(true)
     setImageFailed(false)
     applyImageStatus(imgRef.current)
   }, [imageUrl, applyImageStatus])
@@ -71,22 +70,28 @@ export function UserAvatarCircle({
     [applyImageStatus, imageUrl],
   )
 
-  const showImage = Boolean(imageUrl) && !imageFailed
-  const showSpinner = isBusy || (showImage && isImageLoading)
+  const showImage = Boolean(imageUrl) && !imageFailed && !isImageLoading
+  const showUploadSpinner = isBusy
 
   return (
     <span
       className={`relative inline-flex ${sizeClassName} shrink-0 items-center justify-center overflow-hidden ${roundedClassName}`}
-      aria-label={ariaLabel}
-      aria-busy={showSpinner}
+      aria-label={ariaLabel || undefined}
+      aria-busy={showUploadSpinner || (Boolean(imageUrl) && isImageLoading)}
     >
-      {showImage ? (
+      <span
+        className={`flex h-full w-full items-center justify-center bg-sky-600 font-semibold tracking-widest text-white ${textClassName}`}
+        aria-hidden={Boolean(ariaLabel) && showImage}
+      >
+        {initials}
+      </span>
+      {imageUrl && !imageFailed ? (
         <img
           key={imageUrl}
           ref={handleImgRef}
-          src={imageUrl!}
+          src={imageUrl}
           alt=""
-          className="h-full w-full object-cover"
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${showImage ? 'opacity-100' : 'opacity-0'}`}
           decoding="async"
           onLoad={() => {
             setIsImageLoading(false)
@@ -97,18 +102,11 @@ export function UserAvatarCircle({
             setIsImageLoading(false)
           }}
         />
-      ) : (
-        <span
-          className={`flex h-full w-full items-center justify-center bg-sky-600 font-semibold tracking-widest text-white ${textClassName}`}
-          aria-hidden={Boolean(ariaLabel)}
-        >
-          {initials}
-        </span>
-      )}
-      {showSpinner ? (
-        <span className="absolute inset-0 flex items-center justify-center bg-white/75" role="status">
-          <span className="sr-only">Loading profile photo</span>
-          <FiRefreshCw className="h-[38%] w-[38%] min-h-4 min-w-4 animate-spin text-sky-600" aria-hidden="true" />
+      ) : null}
+      {showUploadSpinner ? (
+        <span className="absolute inset-0 z-10 flex items-center justify-center bg-white/75" role="status">
+          <span className="sr-only">Updating profile photo</span>
+          <FiRefreshCw className="h-[38%] w-[38%] min-h-4 min-w-4 motion-safe:animate-spin text-sky-600" aria-hidden="true" />
         </span>
       ) : null}
     </span>
