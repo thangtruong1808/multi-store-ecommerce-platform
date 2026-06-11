@@ -54,11 +54,15 @@ jobs:
           docker push ${API_IMAGE}:${SHA_TAG}
 
       - name: Build and push web image
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_PRODUCT_MEDIA_BASE_URL: ${{ vars.VITE_PRODUCT_MEDIA_BASE_URL }}
+          VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}
         run: |
           docker build -t ${WEB_IMAGE}:${IMAGE_TAG} -t ${WEB_IMAGE}:${SHA_TAG} \
-            --build-arg VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }} \
-            --build-arg VITE_PRODUCT_MEDIA_BASE_URL=${{ vars.VITE_PRODUCT_MEDIA_BASE_URL }} \
-            --build-arg VITE_SUPPORT_EMAIL=${{ vars.VITE_SUPPORT_EMAIL }} \
+            --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL}" \
+            --build-arg "VITE_PRODUCT_MEDIA_BASE_URL=${VITE_PRODUCT_MEDIA_BASE_URL}" \
+            --build-arg "VITE_SUPPORT_EMAIL=${VITE_SUPPORT_EMAIL}" \
             ./frontend
           docker push ${WEB_IMAGE}:${IMAGE_TAG}
           docker push ${WEB_IMAGE}:${SHA_TAG}
