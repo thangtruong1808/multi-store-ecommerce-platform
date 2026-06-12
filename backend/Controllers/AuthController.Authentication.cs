@@ -19,6 +19,7 @@ public partial class AuthController
         var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
         var password = request.Password?.Trim() ?? string.Empty;
         var mobile = request.Mobile?.Trim();
+        var role = string.IsNullOrWhiteSpace(request.Role) ? "customer" : request.Role.Trim().ToLowerInvariant();
         // Create a dictionary to store the registration errors.
         var registerErrors = new Dictionary<string, string>();
         // If the first name is empty, set the first name error.
@@ -66,9 +67,14 @@ public partial class AuthController
         }
 
         // If the mobile is not empty and is less than 8 characters, set the mobile error.
-            if (!string.IsNullOrWhiteSpace(mobile) && mobile.Length < 8)
+        if (!string.IsNullOrWhiteSpace(mobile) && mobile.Length < 8)
         {
             registerErrors["mobile"] = "Mobile must be at least 8 characters.";
+        }
+
+        if (!IsValidUserRole(role))
+        {
+            registerErrors["role"] = "Role must be one of: admin, store_manager, staff, customer.";
         }
 
         // If there are any errors, return a bad request response.
@@ -81,16 +87,16 @@ public partial class AuthController
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
         // Open a connection to the database.
         await using var conn = await _dataSource.OpenConnectionAsync();
-        // Ensure the customer role has the necessary permissions.
-        await EnsureRolePermissionsAsync(conn, "customer");
+        await EnsureRolePermissionsAsync(conn, role);
         // Create a command to insert the user into the database.
         await using var cmd = conn.CreateCommand();
         // The CommandText property is used to define the SQL command to execute.
         cmd.CommandText = """
                           INSERT INTO app.users (role, first_name, last_name, email, password_hash, mobile, is_active)
-                          VALUES (CAST('customer' AS app.user_role), @first_name, @last_name, @email, @password_hash, @mobile, TRUE)
-                          RETURNING id, first_name, last_name, email, mobile, is_active, created_at;
+                          VALUES (CAST(@role AS app.user_role), @first_name, @last_name, @email, @password_hash, @mobile, TRUE)
+                          RETURNING id, role::text, first_name, last_name, email, mobile, is_active, created_at;
                           """;
+        cmd.Parameters.AddWithValue("role", role);
         // The Parameters property is used to add parameters to the SQL command.
         cmd.Parameters.AddWithValue("first_name", firstName);
         // The Parameters property is used to add parameters to the SQL command.
@@ -110,24 +116,25 @@ public partial class AuthController
             await reader.ReadAsync();
             // Get the created user ID from the result.
             var createdUserId = reader.GetGuid(0);
+            var createdRole = reader.GetString(1);
             // Get the created user first name from the result.
-            var createdFirstName = reader.GetString(1);
+            var createdFirstName = reader.GetString(2);
             // Get the created user last name from the result.
-            var createdLastName = reader.GetString(2);
+            var createdLastName = reader.GetString(3);
             // Get the created user email from the result.
-            var createdEmail = reader.GetString(3);
+            var createdEmail = reader.GetString(4);
             // Get the created user mobile from the result.
-            var createdMobile = reader.IsDBNull(4) ? null : reader.GetString(4);
+            var createdMobile = reader.IsDBNull(5) ? null : reader.GetString(5);
             // Get the created user is active from the result.
-            var createdIsActive = reader.GetBoolean(5);
+            var createdIsActive = reader.GetBoolean(6);
             // Get the created user created at from the result.
-            var createdAt = reader.GetDateTime(6);
+            var createdAt = reader.GetDateTime(7);
             // Dispose the reader.
             await reader.DisposeAsync();
             // Write an audit log for the user registration.
             await WriteAuditLogAsync(conn, null, createdUserId, "user.registered", "user", createdUserId, new
             {
-                role = "customer",
+                role = createdRole,
                 email
             });
             // Return a success response.
@@ -135,6 +142,7 @@ public partial class AuthController
             return Ok(new
             {
                 id = createdUserId,
+                role = createdRole,
                 firstName = createdFirstName,
                 lastName = createdLastName,
                 email = createdEmail,

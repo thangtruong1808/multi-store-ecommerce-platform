@@ -74,6 +74,21 @@ public class RegisterValidationTests : IClassFixture<CustomWebApplicationFactory
         await AssertValidationErrorAsync(response, "mobile");
     }
 
+    [Fact]
+    public async Task Register_invalid_role_returns_400_with_field_error()
+    {
+        var response = await PostRegisterAsync(new
+        {
+            firstName = "Jane",
+            lastName = "Doe",
+            email = "role.test@example.com",
+            password = "password123",
+            role = "superuser",
+        });
+
+        await AssertValidationErrorAsync(response, "role");
+    }
+
     private Task<HttpResponseMessage> PostRegisterAsync(object body) =>
         _client.PostAsJsonAsync("/api/auth/register", body);
 

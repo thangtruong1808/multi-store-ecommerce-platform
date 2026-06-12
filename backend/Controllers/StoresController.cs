@@ -28,13 +28,13 @@ public class StoresController : ControllerBase
         bool IsActive
     );
 
-    /// <summary>Stores the signed-in user may use when creating products (admin: all; others: via store_staff).</summary>
+    /// <summary>Stores the signed-in user is assigned to (admin: all; store_manager/staff: via store_staff).</summary>
     [Authorize]
     [HttpGet("managed")]
     public async Task<IActionResult> ListManagedStores()
     {
         var role = await GetCurrentUserRoleAsync();
-        if (!CanAccessDashboard(role))
+        if (!CanListManagedStores(role))
         {
             return Forbid();
         }
@@ -434,6 +434,11 @@ public class StoresController : ControllerBase
     private static bool CanAccessDashboard(string? role)
     {
         return role is "admin" or "store_manager";
+    }
+
+    private static bool CanListManagedStores(string? role)
+    {
+        return role is "admin" or "store_manager" or "staff";
     }
 
     private static bool IsAdmin(string? role)

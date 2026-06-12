@@ -258,7 +258,13 @@ public partial class AuthController : ControllerBase
         });
     }
 
-    public sealed record RegisterRequest(string FirstName, string LastName, string Email, string Password, string? Mobile);
+    public sealed record RegisterRequest(
+        string FirstName,
+        string LastName,
+        string Email,
+        string Password,
+        string? Mobile,
+        string? Role = null);
     public sealed record LoginRequest(string Email, string Password);
     public sealed record PasswordResetRequest(string Email);
 

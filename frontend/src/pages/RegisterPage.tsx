@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { FiCheckCircle, FiLock, FiMail, FiPhone, FiUser, FiUserPlus } from 'react-icons/fi'
+import { FiBriefcase, FiCheckCircle, FiLock, FiMail, FiPhone, FiUser, FiUserPlus } from 'react-icons/fi'
 import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { clearAuthErrors, registerUser } from '../features/auth/authSlice'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+
+const REGISTER_ROLES = ['customer', 'admin', 'store_manager', 'staff'] as const
+type RegisterRole = (typeof REGISTER_ROLES)[number]
 
 const registerSchema = z
   .object({
@@ -18,6 +21,7 @@ const registerSchema = z
       .optional()
       .refine((value) => !value || value.length >= 8, 'Mobile must be at least 8 characters'),
     confirmPassword: z.string().min(8, 'Confirm password must be at least 8 characters'),
+    role: z.enum(REGISTER_ROLES),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -31,6 +35,14 @@ type RegisterForm = {
   password: string
   mobile: string
   confirmPassword: string
+  role: RegisterRole
+}
+
+const ROLE_LABELS: Record<RegisterRole, string> = {
+  customer: 'Customer (default — shopping)',
+  admin: 'Admin (full dashboard)',
+  store_manager: 'Store Manager (dashboard)',
+  staff: 'Staff (store operations)',
 }
 
 function RegisterPage() {
@@ -39,7 +51,8 @@ function RegisterPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   // The useAppSelector hook is used to select the state from the store.
-  const { isAuthenticated, actionLoading, error, fieldErrors } = useAppSelector((state) => state.auth)
+  const { isAuthenticated, error, fieldErrors } = useAppSelector((state) => state.auth)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   // The useState hook is used to store the form data.
   const [formData, setFormData] = useState<RegisterForm>({
     firstName: '',
@@ -48,6 +61,7 @@ function RegisterPage() {
     password: '',
     mobile: '',
     confirmPassword: '',
+    role: 'customer',
   })
   // The useState hook is used to store the client errors.
   const [clientErrors, setClientErrors] = useState<Record<string, string | undefined>>({})
@@ -56,8 +70,6 @@ function RegisterPage() {
 
   // The useMemo hook is used to memoize the merged errors.
   const mergedErrors = useMemo(() => ({ ...fieldErrors, ...clientErrors }), [fieldErrors, clientErrors])
-  // The isSubmitting variable is used to store the submitting state.
-  const isSubmitting = actionLoading
 
   // If the user is authenticated, redirect to the home page.
   if (isAuthenticated) {
@@ -65,7 +77,7 @@ function RegisterPage() {
   }
 
   // The handleChange function is used to handle the change of the form data.
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     setClientErrors((prev) => ({ ...prev, [name]: undefined }))
@@ -94,20 +106,25 @@ function RegisterPage() {
       return
     }
 
-    // Dispatch the register user action.
-    const result = await dispatch(
-      registerUser({
-        firstName: parsed.data.firstName,
-        lastName: parsed.data.lastName,
-        email: parsed.data.email,
-        password: parsed.data.password,
-        mobile: parsed.data.mobile,
-      }),
-    )
-    // If the register user is successful, navigate to the home page.
-    // The registerUser.fulfilled.match function is used to check if the action is fulfilled.
-    if (registerUser.fulfilled.match(result)) {
-      navigate('/')
+    setIsSubmitting(true)
+    try {
+      // Dispatch the register user action.
+      const result = await dispatch(
+        registerUser({
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+          email: parsed.data.email,
+          password: parsed.data.password,
+          mobile: parsed.data.mobile,
+          role: parsed.data.role,
+        }),
+      )
+      // If the register user is successful, navigate to the home page.
+      if (registerUser.fulfilled.match(result)) {
+        navigate('/')
+      }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -232,6 +249,31 @@ function RegisterPage() {
           </div>
 
           <div>
+            <label htmlFor="role" className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
+              <FiBriefcase className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              Account role <span className="text-slate-400">(optional — portfolio showcase)</span>
+            </label>
+            <select
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-slate-200 focus:ring"
+            >
+              {REGISTER_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Default is Customer. Choose Admin or Store Manager to explore the dashboard after sign-in.
+            </p>
+            {mergedErrors.role && <p className="mt-1 text-xs text-red-600">{mergedErrors.role}</p>}
+          </div>
+
+          <div>
             <label htmlFor="confirmPassword" className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
               <FiCheckCircle className="h-4 w-4 text-slate-500" aria-hidden="true" />
               Confirm Password
@@ -264,17 +306,24 @@ function RegisterPage() {
           <button
             type="submit"
             disabled={isSubmitting}
+            aria-disabled={isSubmitting}
             className="flex w-full items-center justify-center gap-2 rounded-md bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting && (
-              <span
-                className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                aria-hidden="true"
-              />
+            {isSubmitting ? (
+              <>
+                <span
+                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                />
+                <span>Creating account...</span>
+                <span className="sr-only">Registration in progress</span>
+              </>
+            ) : (
+              <>
+                <FiUserPlus className="h-4 w-4" aria-hidden="true" />
+                <span>Create Account</span>
+              </>
             )}
-            <FiUserPlus className="h-4 w-4" aria-hidden="true" />
-            {isSubmitting ? 'Creating account...' : 'Create Account'}
-            {isSubmitting && <span className="sr-only">Registration in progress</span>}
           </button>
         </form>
 

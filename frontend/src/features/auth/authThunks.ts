@@ -16,6 +16,7 @@ type RegisterRequestBody = {
   email: string
   password: string
   mobile?: string
+  role?: string
 }
 
 type UpdateProfileRequestBody = {
