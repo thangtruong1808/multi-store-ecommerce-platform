@@ -96,14 +96,14 @@ jobs:
           az containerapp update \
             --name api \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --image ${API_IMAGE}:${IMAGE_TAG}
+            --image ${API_IMAGE}:${SHA_TAG}
 
       - name: Update web container app
         run: |
           az containerapp update \
             --name web \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --image ${WEB_IMAGE}:${IMAGE_TAG}
+            --image ${WEB_IMAGE}:${SHA_TAG}
 
       - name: Scale up apps after deploy (cold-start / showcase hours)
         run: |
