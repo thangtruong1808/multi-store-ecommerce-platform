@@ -96,12 +96,26 @@ jobs:
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
             --image ${WEB_IMAGE}:${IMAGE_TAG}
 
+      - name: Scale up apps after deploy (cold-start / showcase hours)
+        run: |
+          for app in postgres api web; do
+            az containerapp update \
+              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+              --name "$app" \
+              --min-replicas 1
+          done
+          echo "Waiting for Postgres and API warm-up..."
+          sleep 90
+
       - name: Smoke test API health
         run: |
           for attempt in $(seq 1 18); do
             if curl -fsS "${{ vars.API_URL }}/api/health" | grep -q '"status":"ok"'; then
+              echo "Health OK on attempt ${attempt}"
               exit 0
             fi
+            echo "Attempt ${attempt}/18 — retrying in 10s..."
             sleep 10
           done
+          echo "API health check failed after deploy"
           exit 1
