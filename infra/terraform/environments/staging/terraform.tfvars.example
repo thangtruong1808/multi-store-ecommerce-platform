@@ -15,8 +15,9 @@ image_tag  = "staging"
 # Optional: skip shared/ apply entirely when use_acr = false
 # acr_name = ""
 
-# Scale-to-zero + weekday schedule (Automation account, Free tier)
+# Scale-to-zero (api/web only) + weekday schedule (Automation account, Free tier)
 aca_min_replicas            = 0
+aca_postgres_min_replicas   = 1
 aca_max_replicas            = 2
 enable_aca_weekday_schedule = true
 aca_schedule_start          = "10:00:00"

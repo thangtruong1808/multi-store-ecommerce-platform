@@ -1,4 +1,4 @@
-# Scale Container Apps to zero (order: web -> api -> postgres).
+# Scale api/web to zero (postgres stays warm — Azure Files WAL safety).
 $ErrorActionPreference = "Stop"
 Connect-AzAccount -Identity | Out-Null
 

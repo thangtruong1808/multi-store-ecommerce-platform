@@ -24,6 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            postgres:
+              - 'infra/docker/postgres-azurefiles/**'
+
       - name: Set GHCR image names
         run: |
           OWNER="${{ vars.GHCR_OWNER }}"
@@ -68,12 +75,14 @@ jobs:
           docker push ${WEB_IMAGE}:${SHA_TAG}
 
       - name: Build and push Postgres image (Azure Files)
+        if: steps.changes.outputs.postgres == 'true'
         run: |
           docker build -t ${POSTGRES_IMAGE}:${IMAGE_TAG} -t ${POSTGRES_IMAGE}:${SHA_TAG} ./infra/docker/postgres-azurefiles
           docker push ${POSTGRES_IMAGE}:${IMAGE_TAG}
           docker push ${POSTGRES_IMAGE}:${SHA_TAG}
 
       - name: Update Postgres container app
+        if: steps.changes.outputs.postgres == 'true'
         run: |
           az containerapp update \
             --name postgres \
@@ -96,7 +105,11 @@ jobs:
 
       - name: Scale up apps after deploy (cold-start / showcase hours)
         run: |
-          for app in postgres api web; do
+          az containerapp update \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --name postgres \
+            --min-replicas 1
+          for app in api web; do
             az containerapp update \
               --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
               --name "$app" \

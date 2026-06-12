@@ -90,10 +90,10 @@ Everything important for the running app lives inside ACA (or in fixed Azure ser
 
 One diagram: OFF vs ON
 
-OFF (min_replicas = 0):
+OFF (api/web min_replicas = 0; postgres stays at 1 for Azure Files WAL safety):
   web:     (no container)
   api:     (no container)
-  postgres:(no container)  ← data still on Azure File
+  postgres: running  ← data on Azure File; avoids abrupt shutdown corruption
 
 ON (min_replicas = 1):
   web:     running  ──►  same URL

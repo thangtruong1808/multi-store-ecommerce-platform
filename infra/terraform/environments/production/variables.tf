@@ -62,8 +62,15 @@ variable "postgres_image_override" {
 }
 
 variable "aca_min_replicas" {
-  type    = number
-  default = 1
+  type        = number
+  default     = 1
+  description = "Idle min replicas for api/web."
+}
+
+variable "aca_postgres_min_replicas" {
+  type        = number
+  default     = 1
+  description = "Postgres min replicas (keep at 1 on Azure Files to avoid WAL corruption on abrupt shutdown)."
 }
 
 variable "aca_max_replicas" {

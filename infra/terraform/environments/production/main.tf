@@ -123,7 +123,7 @@ module "postgres" {
   postgres_password            = var.postgres_password
   image                        = local.postgres_image
   environment_default_domain   = module.container_apps_environment.default_domain
-  min_replicas                 = var.aca_min_replicas
+  min_replicas                 = var.aca_postgres_min_replicas
   max_replicas                 = 1
   cpu                          = 0.5
   memory                       = "1Gi"
@@ -177,7 +177,7 @@ module "aca_schedule" {
   subscription_id                 = data.azurerm_client_config.current.subscription_id
   enabled                         = var.enable_aca_weekday_schedule
   container_app_names_start_order = ["postgres", "api", "web"]
-  container_app_names_stop_order  = ["web", "api", "postgres"]
+  container_app_names_stop_order  = ["web", "api"]
   weekday_start_time              = var.aca_schedule_start
   weekday_stop_time               = var.aca_schedule_stop
   timezone                        = var.aca_schedule_timezone
