@@ -1,404 +1,294 @@
-# Terraform — Azure infrastructure
+# Azure Infrastructure (Terraform)
 
+Infrastructure as Code for the **Multi-Store E-Commerce Platform** — a full-stack portfolio project deployable to **Azure Container Apps** with cost-aware scheduling, GitHub Actions CI/CD, and a single shared resource group for showcase/demo use.
 
+Use this document for **DevOps / platform** interviews. Pair it with the **[root README](../../README.md)** for application features, local development, and full-stack context.
 
-Infrastructure as Code for **staging** and optional **production** Container Apps. The default **showcase / cost-optimized** profile uses **GHCR** (no ACR), **scale-to-zero**, and **weekday 10:00–17:00** schedules.
+---
 
+## Portfolio highlights (resume talking points)
 
+### DevOps / Platform
 
-## Layout
+- **Terraform modules** for Container Apps, Postgres, storage, blob photos, and weekday Automation schedules
+- **GitHub Actions** — CI on PR/push; deploy to Azure via **OIDC** (no long-lived Azure secrets in GitHub)
+- **GHCR** image pipeline — build, tag (`production` / `staging` + commit SHA), push, update ACA revisions
+- **Scale-to-zero** for API/web outside demo hours; Postgres kept warm for **Azure Files + WAL** reliability
+- Custom **Postgres 16** image on Azure File Share (`infra/docker/postgres-azurefiles`)
+- Remote **Terraform state** in Azure Storage; separate state keys per environment
 
+### Full-stack
 
+- **React 18 + Vite + Tailwind** storefront and admin dashboard → **ASP.NET Core 8** API → **PostgreSQL 16**
+- Stripe Checkout, webhooks, invoice PDF, role-based auth (admin / store_manager / staff / customer)
+- Azure Blob product media, Azure Communication Services email
 
-```text
+### Frontend
 
-infra/terraform/
+- Responsive storefront, cart/checkout, dashboard CRUD (products, stores, vouchers, users)
+- Redux Toolkit auth, Zod form validation, accessible loading states
 
-├── modules/              # Reusable modules — see [modules/README.md](modules/README.md)
+---
 
-│   ├── aca_schedule/     # Azure Automation start/stop (Free tier)
+## Architecture
 
-│   ├── api_app/          # .NET API (optional ACR or public GHCR image)
+```mermaid
+flowchart TB
+  subgraph Internet
+    User[Browser / Stripe]
+  end
 
-│   ├── web_app/
+  subgraph Azure["Azure — multi-store-ecommerce-rg"]
+    subgraph ACA["Container Apps Environment (australiaeast)"]
+      Web[web — React static]
+      API[api — ASP.NET Core 8]
+      PG[postgres — Postgres 16]
+    end
+    Files[(Azure File Share — DB data)]
+    Blob[(Blob Storage — product photos)]
+    Auto[Automation — weekday start/stop]
+    LAW[Log Analytics]
+  end
 
-│   ├── postgres_app/
+  GHCR[(GitHub Container Registry)]
 
-│   └── ...
-
-├── scripts/
-
-│   ├── aca-start.sh      # Manual scale up
-
-│   └── aca-stop.sh       # Manual scale to zero
-
-└── environments/
-
-    ├── shared/           # Optional ACR only (skip when create_acr = false)
-
-    ├── staging/
-
-    └── production/
-
+  User --> Web
+  User --> API
+  User --> Stripe[Stripe]
+  Stripe --> API
+  Web --> API
+  API --> PG
+  PG --> Files
+  API --> Blob
+  GHCR --> Web
+  GHCR --> API
+  GHCR --> PG
+  Auto -.-> Web
+  Auto -.-> API
 ```
 
+**Traffic path:** `web` → `api` → `postgres` (internal ACA ingress). Photos served from Blob Storage. Stripe calls the public API webhook URL.
 
+**Single stack:** One resource group hosts the live demo. Terraform is applied from `environments/staging/`; GitHub deploys `:staging` from `develop` and `:production` from `main` to the same ACA apps.
 
-## Showcase cost profile (~≤ AU$15/month)
+---
 
+## Scale profile (showcase / cost-aware)
 
+| Component | Idle behaviour | Notes |
+|-----------|----------------|-------|
+| **web** | `min_replicas = 0` | No compute cost when scaled down |
+| **api** | `min_replicas = 0` | Same |
+| **postgres** | `min_replicas = 1` | Stays warm — avoids WAL corruption on Azure Files after abrupt shutdown |
+| **Schedule** | Mon–Fri 10:00–17:00 Australia/Sydney | Automation scales api/web up; stop runbook scales api/web down only |
+| **Manual** | `scripts/aca-start.sh` / `aca-stop.sh` | Start/stop outside Automation hours |
 
-| Choice | Savings |
+Approximate monthly cost (pay-as-you-go, light demo usage): **~AU$15–25** depending on Postgres uptime and showcase hours. Postgres 24/7 alone is roughly **~USD 8–12/month** compute. Azure Budgets alert only — they do **not** auto-stop resources.
 
+---
+
+## Repository layout
+
+```text
+infra/terraform/
+├── modules/                 # Reusable modules — see modules/README.md
+│   ├── aca_schedule/        # Azure Automation weekday start/stop (Free tier)
+│   ├── api_app/             # .NET API Container App
+│   ├── web_app/             # React web Container App
+│   ├── postgres_app/        # Postgres on Azure Files mount
+│   ├── photos_storage/      # Optional product-photos blob account
+│   ├── storage/             # File share for Postgres data
+│   └── ...
+├── scripts/
+│   ├── aca-start.sh         # Scale postgres + api + web up
+│   └── aca-stop.sh          # Scale api + web to zero (postgres stays at 1)
+└── environments/
+    ├── shared/              # Optional ACR (skip when use_acr = false)
+    ├── staging/             # Primary apply target for the live stack
+    └── production/          # Alternate tfvars profile (same modules)
+```
+
+---
+
+## Terraform modules
+
+| Module | Purpose |
 |--------|---------|
+| `resource_group` | Create or reference existing RG |
+| `log_analytics` | ACA diagnostics |
+| `storage` | Azure Files share for Postgres `PGDATA` |
+| `photos_storage` | Blob account + container for product images |
+| `container_apps_environment` | CAE + volume mount for Postgres |
+| `postgres_app` | Postgres 16 Container App (custom GHCR image) |
+| `api_app` / `web_app` | Public ACA services (GHCR or optional ACR) |
+| `aca_schedule` | Weekday Automation runbooks (start: postgres → api → web; stop: web → api) |
 
-| **GHCR** instead of ACR | ~AU$7–8/mo |
+---
 
-| **min_replicas = 0** idle | No ACA compute outside hours |
+## CI/CD (GitHub Actions)
 
-| **max_replicas = 2** | Horizontal scale under load; extra replica cost only while it runs |
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| **CI** | PR / push to `develop`, `main` | Backend build + unit/integration tests; frontend build + tests |
+| **Deploy Staging** | Push to `develop` | Build/push GHCR `:staging` + `:sha-*` → update ACA → scale up → API health smoke test |
+| **Deploy Production** | Push to `main` | Same with `:production` tag |
+| **Terraform Plan / Apply** | Manual | Infra changes via OIDC |
 
-| **Automation** Mon–Fri 10:00–17:00 Australia/Sydney (AEST) | Matches portfolio demo hours |
+**Deploy details:**
 
-| **Smaller CPU/RAM**, **10 GB** file share | Lower storage / compute |
+- API and web Container Apps are updated with **commit SHA tags** so each deploy creates a new revision (avoids stale `:production` / `:staging` pulls).
+- Postgres image rebuild/deploy runs **only** when `infra/docker/postgres-azurefiles/**` changes.
+- After deploy, workflow scales apps up and retries `/api/health` for cold-start tolerance.
 
-| **Skip `shared/` apply** when `create_acr = false` | One less stack to manage |
+See [`.github/azure-github-config.example.md`](../../.github/azure-github-config.example.md) for OIDC and GitHub Environment variables (`API_URL`, `VITE_*`, `AZURE_*`).
 
-
-
-**Still billed (low):** Terraform state storage, Log Analytics (light ingest), Postgres file share GB, existing blob/ACS.
-
-
-
-**Outside 10:00–17:00:** URLs return errors until the next start window or you run `scripts/aca-start.sh`. Deploy workflow scales apps up after each `develop` push.
-
-Recommended order
-
-1. az login                    ← Azure (devops)
-2. Bootstrap (az only)         ← NO git, NO tfvars
-3. git clone                   ← get Terraform code
-4. cd .../environments/staging
-5. cp backend.hcl.example → backend.hcl
-6. cp terraform.tfvars.example → terraform.tfvars
-7. Edit terraform.tfvars       ← secrets, storage_account_name, etc.
-8. terraform init -backend-config=backend.hcl
-9. terraform plan
-10. terraform apply             ← when ready (costs money)
-
-Static public IP (no need)
-Everything important for the running app lives inside ACA (or in fixed Azure services with fixed URLs/connection strings).
-
-One diagram: OFF vs ON
-
-OFF (api/web min_replicas = 0; postgres stays at 1 for Azure Files WAL safety):
-  web:     (no container)
-  api:     (no container)
-  postgres: running  ← data on Azure File; avoids abrupt shutdown corruption
-
-ON (min_replicas = 1):
-  web:     running  ──►  same URL
-  api:     running  ──►  same URL  ──►  Host=postgres (same as before)
-  postgres:running  ──►  same data
-
-Internet
-   │
-   ▼
-┌─────────────────────────────────────────────────┐
-│  Container Apps Environment (cae-multistore-…)  │
-│                                                 │
-│   web  ──►  api  ──►  postgres (DB)             │
-│              │              │                   │
-│         GHCR image    data on Azure File share  │
-└─────────────────────────────────────────────────┘
-
-Separate (unchanged when ACA sleeps):
-  • Blob photos (multistorephotos)
-  • Stripe (calls your API URL)
-  • ACS email
-
-max_replicas = 2
-
-What happens in Pattern C at 10k simultaneous checkouts
-1. When users click “Pay” (before Stripe)
-Each purchase hits your API:
-
-POST /api/checkout/session — DB transaction, create order, call Stripe to create a session
-That runs on the same API Container App as product pages, cart, login, dashboard, etc.
-
-With your Terraform defaults (aca_max_replicas = 1), one replica serves everything. So:
-
-Checkout requests queue behind each other
-Browsing gets slower or times out
-Cold starts make it worse if the app was scaled to zero
-
-So yes: more replicas ≈ more capacity + automatic distribution of requests — like scaling out a service behind a load balancer in AWS.
-
-project này không dùng Kubernetes (AKS).
-
-Simple mental model
-Option A — Pattern C + higher max_replicas
-  "Make the SAME API bigger/fatter"
-  ✅ More HTTP capacity
-  ❌ Still one DB, still mixed traffic, still sync webhook work
-
-Option B — Functions + queue for webhooks
-  "Split payment callbacks into a separate lane"
-  ✅ Main API mostly serves users; webhooks processed separately
-  ✅ Can ack Stripe fast and retry async work
-  ❌ More architecture and infra
+---
 
 ## Prerequisites
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.5
-
-- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (`az login`)
-
+- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) — `az login`
 - Contributor on subscription / resource group
+- GitHub OIDC federated credentials for deploy workflows
+- **GHCR:** packages `multi-store-api`, `multi-store-web`, `multi-store-postgres` set to **Public** (anonymous ACA pull) unless registry credentials are added
 
-- GitHub OIDC app — [`.github/azure-github-config.example.md`](../../.github/azure-github-config.example.md)
+| Setting | Default |
+|---------|---------|
+| Resource group | `multi-store-ecommerce-rg` |
+| Region (RG) | `australiacentral` |
+| Container Apps | `australiaeast` |
 
-- **GHCR:** push images from `deploy-staging.yml`; set packages **Public** for anonymous ACA pull (or add registry secrets later)
+---
 
+## Bootstrap remote state (one time)
 
-
-## Azure layout
-
-
-
-| Setting | Value |
-
-|---------|--------|
-
-| Resource group | `multi-store-ecommerce-rg` (existing) |
-
-| Region | `australiacentral` |
-
-
-
-## 1. Bootstrap remote state (one time) = Khởi tạo ban đầu (setup lần đầu tiên)
-It only sets up where Terraform stores its state.
-
+Creates the Azure Storage account and container for Terraform state.
 
 ```bash
-
 RG=multi-store-ecommerce-rg
-
 LOC=australiacentral
-
-SA=tfstatemultistore
-
+SA=tfstatemultistore   # must be globally unique — change if taken
 
 az storage account create -g $RG -n $SA -l $LOC --sku Standard_LRS
-
 az storage container create --account-name $SA -n tfstate
-
 ```
 
-
-Copy backend config (includes separate state **key** per environment):
+Copy backend config per environment:
 
 ```bash
 cd infra/terraform/environments/staging
-cp backend.hcl.example backend.hcl   # in staging/ (and shared/ if used)
-
+cp backend.hcl.example backend.hcl
 ```
 
-## 2. Apply order (GHCR showcase)
+---
 
+## Apply order (GHCR showcase — no ACR)
 
 ```bash
-
-# Optional — skip entirely when create_acr = false
-
-# cd environments/shared && terraform init -backend-config=backend.hcl && terraform apply
-
-
-
-cd environments/staging
-
+cd infra/terraform/environments/staging
 cp terraform.tfvars.example terraform.tfvars   # fill secrets + storage_account_name
-
 terraform init -backend-config=backend.hcl
-
 terraform plan
-
 terraform apply
-
 ```
 
-**Before first apply:** push images to GHCR (merge to `develop` or build locally and push):
+Optional ACR path: apply `environments/shared` first, then set `use_acr = true` in tfvars. Default showcase profile uses **GHCR only** (`use_acr = false`).
+
+**Before first apply**, ensure images exist on GHCR (push to `develop` / `main`, or build locally):
 
 ```bash
-
 echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 
-docker build -t ghcr.io/thangtruong1808/multi-store-api:staging ./backend
+docker build -t ghcr.io/YOUR_USER/multi-store-api:staging ./backend
+docker push ghcr.io/YOUR_USER/multi-store-api:staging
 
-docker push ghcr.io/thangtruong1808/multi-store-api:staging
+docker build -t ghcr.io/YOUR_USER/multi-store-web:staging \
+  --build-arg VITE_API_BASE_URL=https://YOUR_API_URL \
+  --build-arg VITE_PRODUCT_MEDIA_BASE_URL=https://YOUR_BLOB_URL/product-photos \
+  --build-arg VITE_SUPPORT_EMAIL=you@example.com \
+  ./frontend
+docker push ghcr.io/YOUR_USER/multi-store-web:staging
 
-# same for multi-store-web with Vite build-args
-
-docker build -t ghcr.io/thangtruong1808/multi-store-postgres:staging ./infra/docker/postgres-azurefiles
-
-docker push ghcr.io/thangtruong1808/multi-store-postgres:staging
-
+docker build -t ghcr.io/YOUR_USER/multi-store-postgres:staging ./infra/docker/postgres-azurefiles
+docker push ghcr.io/YOUR_USER/multi-store-postgres:staging
 ```
 
-Set GHCR packages **Public**: `multi-store-api`, `multi-store-web`, **`multi-store-postgres`** (ACA pulls without registry credentials).
+---
 
-
-
-## 3. Manual start / stop
-
-
+## Manual start / stop
 
 ```bash
-
 export AZURE_RESOURCE_GROUP=multi-store-ecommerce-rg
 
-bash infra/terraform/scripts/aca-start.sh
-
-bash infra/terraform/scripts/aca-stop.sh
-
+bash infra/terraform/scripts/aca-start.sh   # postgres → wait → api → web
+bash infra/terraform/scripts/aca-stop.sh    # api + web to zero; postgres stays at 1
 ```
 
+Outside Automation hours (or after `aca-stop.sh`), the public URLs return errors until you run `aca-start.sh` or wait for the weekday start schedule.
 
+---
 
-## 4. Database schema
+## Database schema
 
-
-
-After Postgres is running (inside showcase hours or after `aca-start.sh`):
-
-
+After Postgres is running:
 
 ```bash
-
-psql ... -f database/Database-Schema-Generated.sql
-
+psql "host=..." -f database/Database-Schema-Generated.sql
 ```
 
+Use the internal ACA FQDN or a temporary port-forward for initial seeding.
 
+---
 
-## 5. Update URLs after first deploy
+## Post-deploy configuration
 
+1. Run `terraform output web_url` and `api_url`.
+2. Update `terraform.tfvars`: `cors_allowed_origins`, `public_app_base_url`.
+3. `terraform apply` again if tfvars changed.
+4. Update GitHub Environment variables: `API_URL`, `VITE_API_BASE_URL`, `VITE_PRODUCT_MEDIA_BASE_URL`, etc.
+5. Configure Stripe webhook → `{API_URL}/api/webhooks/stripe`.
 
+---
 
-From `terraform output web_url` / `api_url`, set in `terraform.tfvars`:
+## End-to-end deploy flow (typical)
 
+1. **Local:** `terraform apply` (after bootstrap) — creates ACA, storage, Automation, secrets wiring.
+2. **GitHub:** Set Environment secrets/vars (OIDC, Stripe, JWT, …).
+3. **Code:** merge to `develop` (staging tags) or `main` (production tags).
+4. **Actions:** build → GHCR → `az containerapp update` with SHA tag → scale up → health check.
+5. **Demo:** site live at Terraform `web_url` / `api_url` outputs.
 
+`terraform apply` does **not** deploy application code — a git push to `develop` or `main` does.
 
-- `cors_allowed_origins`
+---
 
-- `public_app_base_url`
-
-
-
-Then `terraform apply` again. Update GitHub Environment variables (`API_URL`, `VITE_*`).
-
-
-
-## 6. GitHub Actions
-What you do next (your flow)
-1. terraform apply          → Azure infra created (local, after az login)
-2. (optional) terraform output web_url / api_url
-   → update terraform.tfvars + GitHub vars (API_URL, VITE_*)
-   → terraform apply again if you changed tfvars
-3. On your PC: checkout develop, commit, push
-   git checkout develop
-   git add ...
-   git commit -m "..."
-   git push origin develop
-4. GitHub Actions runs automatically
-5. Site can be live (if health check passes + apps scaled/warm)
-
-Branch: deploy staging runs on push to develop (not main). main triggers production deploy.
-
-You don’t have to be “in Azure CLI” for step 3 — only git push from your project folder (any terminal: Git Bash, PowerShell, etc.).
-
-
-- **Deploy staging:** push to `develop` → build/push **GHCR** → update Container Apps → scale up → health check with retries (cold start).
-
-- **Terraform apply:** Actions → *Terraform Apply* (manual).
-OIDC là viết tắt của OpenID Connect.  
-
-What GitHub runs on push to develop
-Workflow	      Trigger	                What it does
-CI              push to develop         Build/test backend + frontend — no GHCR deploy
-Deploy Staging  push to develop         Docker build → push GHCR → az containerapp update → scale up → health check
-
-One-line summary
-Yes: after terraform apply, commit and git push origin develop from your repo (on develop) triggers GitHub to build Docker images, push to GHCR, and update Container Apps — that’s how the running app gets your code, without you building Docker locally (unless you choose to).
-
-No: terraform apply does not trigger that by itself; the push to develop does.
-
-No: you don’t need az login on your laptop for the GitHub deploy step (only for local Terraform/az).
-
-If staging environment secrets/vars are already set and API_URL matches Terraform outputs, your sequence is the right one for the interview demo path.
 ## Secrets
 
+Never commit `terraform.tfvars`, `backend.hcl`, or `backend/.env`. Only `*.example` files are tracked in git.
 
+Terraform variable names are project-specific; each `resource` block must match the Azure provider schema for the installed provider version.
 
-Never commit `terraform.tfvars` or `backend.hcl`. Only `*.example` files are tracked.
-
-
-Bạn tự đặt tên resource trên cloud và tên biến Terraform, nhưng mọi argument trong block resource phải khớp đúng schema của provider Azure
-## Modules
-
-
-
-| Module | Purpose |
-
-|--------|---------|
-
-| `aca_schedule` | Weekday Automation runbooks (scale min replicas 1 / 0) |
-
-| `api_app` / `web_app` | ACA with optional ACR identity or public image |
-
-| `postgres_app` | Postgres 16 on Azure Files |
-
-| `storage` | File share for Postgres data |
-
-| `container_apps_environment` | ACA environment + mount |
-
-
-
-## Optional: enable ACR again
-
-
-`shared/terraform.tfvars`: `create_acr = true`, `acr_name = "..."`  
-
-`staging/terraform.tfvars`: `use_acr = true`, `acr_name = "..."`  
-
-Update `deploy-staging.yml` or use a separate workflow to push to ACR.
-
-
+---
 
 ## Troubleshooting
 
-
-
 | Issue | Fix |
-
 |-------|-----|
+| Container App `ImagePullBackOff` | GHCR packages must be **public**, or add registry credentials to ACA |
+| 503 / timeout outside hours | Run `aca-start.sh` or wait until weekday 10:00 schedule |
+| API unhealthy after deploy | Cold start 1–3 min; deploy workflow retries health; check Postgres logs |
+| Live site missing latest frontend | Ensure deploy uses SHA tag on `az containerapp update` (see deploy workflows) |
+| Postgres crash / permission denied on Azure File | Use `multi-store-postgres` image; `PGDATA=/mnt/postgres-data`; SMB `uid=70`; see `infra/docker/postgres-azurefiles` |
+| WAL / checkpoint errors after scale-to-zero | Keep `aca_postgres_min_replicas = 1`; do not stop postgres in stop runbook |
+| Automation runbook failed | Portal → Automation account → Job logs; identity needs Contributor on RG |
 
-| Container App ImagePullBackOff | GHCR packages must be **public** (`multi-store-api`, `multi-store-web`, `multi-store-postgres`), or add registry credentials |
+---
 
-| 503 / timeout outside hours | Run `aca-start.sh` or wait until 10:00 Mon–Fri |
+## Related documentation
 
-| API unhealthy after deploy | Cold start ~1–3 min; deploy workflow waits and retries health |
-| Postgres crash / `Permission denied` on Azure File | Use **`multi-store-postgres`** GHCR image; `PGDATA=/mnt/postgres-data`; SMB `mount_options`: **uid=70**, **dir_mode=0700**; clear file share after failed init; `terraform apply` |
-| API health timeout / `no pg_hba.conf entry` | Redeploy latest **`multi-store-postgres`** image (entrypoint adds ACA `hostnossl` rule); restart postgres revision |
-
-| Automation runbook failed | Portal → Automation account → Job → logs; ensure Contributor on RG |
-
-
-
-## Related
-
-
-
-- [`.github/azure-github-config.example.md`](../../.github/azure-github-config.example.md)
-
-- [`.github/workflows/deploy-staging.yml`](../../.github/workflows/deploy-staging.yml)
-
+- **[Root README](../../README.md)** — project overview, local dev, features, tests
+- [Terraform modules guide](modules/README.md) — module mental model
+- [Postgres Azure Files image](../docker/postgres-azurefiles/README.md)
+- [GitHub Azure OIDC setup](../../.github/azure-github-config.example.md)
+- [Deploy staging workflow](../../.github/workflows/deploy-staging.yml)
+- [Deploy production workflow](../../.github/workflows/deploy-production.yml)
